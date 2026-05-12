@@ -56,7 +56,7 @@ dim_credit_status        <- SCD Type 1
 | Phase | Status |
 |-------|--------|
 | 0 Setup | ✅ |
-| 1 BRD | ⏳ |
+| 1 BRD | ✅ |
 | 2 DRD | ⏳ |
 | 3 Architecture | ⏳ |
 | 4 Code | ⏳ |
