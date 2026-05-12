@@ -1,0 +1,44 @@
+version: 2
+
+models:
+  - name: stg_application
+    description: "Cast + renamed silver_application. No business logic."
+    columns:
+      - name: sk_id_curr
+        tests:
+          - not_null
+          - unique
+      - name: days_birth_masked
+        tests:
+          - not_null
+      - name: amt_credit
+        tests:
+          - not_null
+      - name: target_flag
+        tests:
+          - accepted_values:
+              values: [0, 1]
+              severity: warn
+
+  - name: stg_bureau
+    description: "Cast + renamed silver_bureau."
+    columns:
+      - name: sk_id_bureau
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_bureau_balance
+    description: "Cast + renamed silver_bureau_balance. 1 row per sk_id_bureau."
+    columns:
+      - name: sk_id_bureau
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_installments
+    description: "Cast + renamed silver_installments."
+    columns:
+      - name: sk_id_prev
+        tests:
+          - not_null

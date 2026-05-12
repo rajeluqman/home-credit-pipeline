@@ -1,0 +1,113 @@
+version: 2
+
+models:
+  - name: fact_loan_application
+    description: "Grain: 1 row per loan application (sk_id_curr). Central fact table."
+    columns:
+      - name: loan_application_sk
+        tests:
+          - not_null
+          - unique
+      - name: sk_id_curr
+        tests:
+          - not_null
+      - name: applicant_sk
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_applicant')
+              field: applicant_sk
+      - name: loan_type_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_loan_type')
+              field: loan_type_id
+      - name: target_flag
+        tests:
+          - accepted_values:
+              values: [0, 1]
+              severity: warn
+      - name: amt_credit
+        tests:
+          - not_null
+
+  - name: fact_bureau_credit
+    description: "Grain: 1 row per bureau credit record (sk_id_bureau)."
+    columns:
+      - name: bureau_credit_sk
+        tests:
+          - not_null
+          - unique
+      - name: sk_id_bureau
+        tests:
+          - not_null
+      - name: applicant_sk
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_applicant')
+              field: applicant_sk
+      - name: credit_status_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_credit_status')
+              field: status_id
+
+  - name: fact_installment_payment
+    description: "Grain: 1 row per installment payment (sk_id_prev + num_instalment_number)."
+    columns:
+      - name: payment_sk
+        tests:
+          - not_null
+          - unique
+      - name: sk_id_curr
+        tests:
+          - not_null
+
+  - name: dim_applicant
+    description: "SCD Type 2 applicant dimension. start_date/end_date/is_current via dbt snapshot."
+    columns:
+      - name: applicant_sk
+        tests:
+          - not_null
+          - unique
+      - name: applicant_id
+        tests:
+          - not_null
+      - name: start_date
+        tests:
+          - not_null
+      - name: is_current
+        tests:
+          - not_null
+      - name: days_birth_masked
+        tests:
+          - not_null
+
+  - name: dim_loan_type
+    description: "SCD Type 1 — loan contract types (Cash loans, Revolving loans)."
+    columns:
+      - name: loan_type_id
+        tests:
+          - not_null
+          - unique
+      - name: loan_type_name
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_credit_status
+    description: "SCD Type 1 — bureau credit active status codes."
+    columns:
+      - name: status_id
+        tests:
+          - not_null
+          - unique
+      - name: status_code
+        tests:
+          - not_null
+          - unique
+          - accepted_values:
+              values: ['Active', 'Closed', 'Bad debt', 'Sold']

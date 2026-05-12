@@ -34,6 +34,12 @@ venv/
 .dbt/
 dbt_packages/
 target/
+dbt_home_credit/target/
+
+# Great Expectations (generated artifacts)
+gx/validations/
+gx/data_docs/
+gx/checkpoints/
 
 # Airflow
 airflow/logs/

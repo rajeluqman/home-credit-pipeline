@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: int_applicant_attributes
+    description: "SCD2 snapshot source — tracked cols + PII masked. 1 row per applicant."
+    columns:
+      - name: applicant_id
+        tests:
+          - not_null
+          - unique
+
+  - name: int_bureau_with_balance
+    description: "bureau LEFT JOIN bureau_balance on sk_id_bureau."
+    columns:
+      - name: sk_id_bureau
+        tests:
+          - not_null
+          - unique
+
+  - name: int_installment_payments
+    description: "Installments with days_payment_diff derived column."
+    columns:
+      - name: sk_id_prev
+        tests:
+          - not_null

@@ -1,0 +1,42 @@
+version: 2
+
+sources:
+  - name: silver
+    database: "{{ env_var('SNOWFLAKE_DATABASE') }}"
+    schema: "{{ env_var('SNOWFLAKE_SCHEMA_DEV', 'DEV') }}"
+    description: "Silver layer — cleaned and masked data loaded from AWS Glue transforms"
+    tables:
+      - name: silver_application
+        description: "Cleaned application_train — PII masked, XNA nulled, 365243 nulled"
+        columns:
+          - name: SK_ID_CURR
+            tests:
+              - not_null
+              - unique
+          - name: DAYS_BIRTH_MASKED
+            tests:
+              - not_null
+          - name: ORGANIZATION_TYPE
+            tests:
+              - not_in:
+                  values: ['XNA']
+      - name: silver_bureau
+        description: "Bureau credit records — deduped on SK_ID_BUREAU"
+        columns:
+          - name: SK_ID_BUREAU
+            tests:
+              - not_null
+              - unique
+      - name: silver_bureau_balance
+        description: "Bureau balance — 1 row per SK_ID_BUREAU (MONTHS_BALANCE=0)"
+        columns:
+          - name: SK_ID_BUREAU
+            tests:
+              - not_null
+              - unique
+      - name: silver_installments
+        description: "Installment payments — deduped on (SK_ID_PREV, NUM_INSTALMENT_NUMBER)"
+        columns:
+          - name: SK_ID_PREV
+            tests:
+              - not_null

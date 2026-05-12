@@ -1,0 +1,34 @@
+name: 'home_credit_risk'
+version: '1.0.0'
+config-version: 2
+
+profile: 'home-credit-risk-pipeline'
+
+model-paths: ["models"]
+snapshot-paths: ["snapshots"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+analysis-paths: ["analyses"]
+docs-paths: ["docs"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  home_credit_risk:
+    staging:
+      +schema: "{{ env_var('SNOWFLAKE_SCHEMA_DEV', 'DEV') }}"
+      +materialized: view
+    intermediate:
+      +schema: "{{ env_var('SNOWFLAKE_SCHEMA_DEV', 'DEV') }}"
+      +materialized: view
+    mart:
+      +schema: home_credit_gold
+      +materialized: table
+
+snapshots:
+  home_credit_risk:
+    +target_schema: home_credit_gold
