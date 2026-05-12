@@ -1,0 +1,50 @@
+# Claude
+CLAUDE.md
+.claude/
+HOW_IT_WORKS.txt
+PROJECT_STATUS.md
+COST_LOG.md
+docs/JOURNEY_LOG.md
+docs/INTERVIEW_GUIDE.md
+sign-offs/
+
+# Credentials
+.env
+.env.dev
+.env.staging
+.env.prod
+*.env
+credentials/
+
+# Data
+*.parquet
+*.csv
+*.xlsx
+data/
+raw/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# dbt
+.dbt/
+dbt_packages/
+target/
+
+# Airflow
+airflow/logs/
+airflow.cfg
+airflow.db
+standalone_admin_password.txt
+
+# Logs
+logs/
+*.log
+
+# IDE
+.vscode/settings.json
+.idea/
+.DS_Store
