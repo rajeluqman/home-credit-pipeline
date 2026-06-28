@@ -1,0 +1,65 @@
+name: CI
+
+# static-gates: $0, no cloud, no secrets, runs on every PR + push. Proves: scripts compile,
+# lint clean, unit tests pass, the 3 governance contracts hold, repo-map index is fresh, GX
+# JSON is valid. Does NOT run a real Glue job or a real Snowflake dbt build — those need AWS/
+# Snowflake credentials this repo's CI does not have (no AWS OIDC role wired here yet, unlike
+# CIL's ADR-013; that's a real Phase-4b gap, named here rather than silently skipped).
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  static-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff pytest pandas great-expectations
+
+      - name: Lint (ruff)
+        run: ruff check bronze/ silver/ glue/ gx/ scripts/ tests/ .claude/hooks/ simulation/
+
+      - name: Compile Python
+        run: |
+          shopt -s nullglob
+          for f in bronze/*.py silver/*.py glue/*.py gx/*.py scripts/*.py tests/*.py tests/unit/*.py .claude/hooks/*.py simulation/*.py simulation/faults/*.py; do
+            python -m py_compile "$f"
+          done
+
+      - name: Unit tests (bronze ingest + silver transforms — 22 tests)
+        run: pytest tests/unit/ -v
+
+      - name: Identity contract (SK_ID_CURR + SCD2 — ADR-001)
+        run: python tests/identity_contract.py
+
+      - name: Boundary contract (Glue-only Spark, Databricks query-only)
+        run: python tests/boundary_contract.py
+
+      - name: Doc-reference contract (no model/path drift)
+        run: python tests/doc_reference_contract.py
+
+      - name: Repo-map freshness (navigation index matches ground truth)
+        run: python scripts/gen_repo_map.py --check
+
+      - name: Simulation isolation contract (sim lab cannot touch real pipeline)
+        run: python simulation/check_isolation.py
+
+      - name: Validate Great Expectations config
+        run: python -c "import yaml; yaml.safe_load(open('gx/great_expectations.yml'))"
+
+      - name: Guard — no secrets / .env committed
+        run: |
+          if git ls-files | grep -E '(^|/)\.env(\.[a-z]+)?$'; then
+            echo "::error::.env must not be committed"; exit 1
+          fi
+          echo "no .env tracked - ok"

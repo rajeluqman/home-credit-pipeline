@@ -35,3 +35,7 @@ pytest-cov==4.1.0
 
 # Utils
 PyYAML==6.0.1
+
+# Confluence sync (scripts/sync_docs_to_confluence.py)
+markdown==3.5.2
+requests==2.31.0

@@ -1,0 +1,59 @@
+# Home Credit Risk Pipeline — Project Status
+
+> Resume-safe checkpoint. A fresh session reads "▶ RESUME HERE" first.
+> Branch: `framework/governance-retrofit`. Retrofit source: `creative_intelligence_lab`
+> (pipeline-retrofit effort, owner-approved 2026-06-28).
+
+## ▶ RESUME HERE
+**Where we are:** Governance retrofit (CLAUDE.md, 11-agent roster, hook, 3 contracts,
+repo-map, 2 new ADRs, Confluence sync, logs, learning layer, simulation lab, INTERVIEW_GUIDE,
+CI) built on `framework/governance-retrofit`. NOT pushed, NOT a PR yet — owner reviews first.
+**Stack preserved as-is**: Glue PySpark (Silver) + dbt/Snowflake (Gold) + Airflow + Slack —
+verified by reading the actual repo, not assumed from the master spec.
+**Next action:** owner review → push branch → open PR → then port the pattern (not a literal
+copy — stacks differ) to olist-ecommerce-pipeline.
+**Do NOT:** push or open the PR without owner sign-off; swap any tool in the stack.
+
+## Build checklist (with evidence)
+| Item | Status | Evidence |
+|---|---|---|
+| CLAUDE.md | ✅ | `CLAUDE.md` — real Glue/Snowflake stack table, governed-file map |
+| .claude/agents/ ×11 | ✅ | `.claude/agents/*.md` — 11 files (8 base + business-analyst/data-platform-engineer/documentation-sherpa replacing CIL's 8, +finops+infra-reality+cikgu) |
+| .claude/hooks/governance_guard.py | ✅ | retargeted to `glue/`, `dbt_home_credit/models/mart/`, `dbt_home_credit/snapshots/`, `airflow/dags/` |
+| tests/doc_reference_contract.py | ✅ | `python tests/doc_reference_contract.py` → OK, 11 docs |
+| tests/boundary_contract.py | ✅ | `python tests/boundary_contract.py` → OK (after allowing pyspark in `bronze/` too — see "Doc gap found" below) |
+| tests/identity_contract.py | ✅ | `python tests/identity_contract.py` → OK (SK_ID_CURR + SCD2 check) |
+| scripts/gen_repo_map.py + REPO_MAP.md | ✅ | `python scripts/gen_repo_map.py --check` → OK, 61 files |
+| ADR-002 PII-mask-order | ✅ | `docs/ADR/ADR-002-pii-mask-order.md` |
+| ADR-003 Kimball-over-OBT sizing | ✅ | `docs/ADR/ADR-003-kimball-over-obt-sizing.md` |
+| Confluence sync | ✅ | `scripts/sync_docs_to_confluence.py` adapted (PUBLISH_SET = real `docs/*.md`); `markdown`+`requests` added to `requirements.txt` |
+| Logs (PROJECT_STATUS/COST_LOG/DECISION_LOG/INFRA_LIMITS_LOG) | ✅ | this file + the 3 below |
+| learning/CURRICULUM.md + LEARNING_LOG.md | ⬜ | next |
+| simulation/ | ⬜ | next |
+| INTERVIEW_GUIDE.md | ⬜ | next |
+| .github/workflows/ci.yml | ⬜ | next |
+| push branch + PR | ⬜ | blocked on owner review (explicit instruction) |
+
+## Doc gap found during retrofit (real finding, not assumed)
+`docs/ARCHITECTURE.md` states "Silver transforms = AWS Glue (Spark) SAHAJA" — but
+`bronze/ingest_bronze.py:99-100` imports `pyspark.sql` directly (via `delta-spark`, for
+Delta Lake writes to S3 in `ingest_cloud()`). Spark is NOT actually Glue-exclusive; Bronze
+cloud-mode ingestion also needs a SparkSession. `tests/boundary_contract.py` was written to
+match this REALITY (allows pyspark in both `glue/` and `bronze/`), not the doc's stricter
+claim. Flagged in `INTERVIEW_GUIDE.md` for an `docs/ARCHITECTURE.md` correction — not yet
+fixed (owner decision: correct the doc, or move Bronze off delta-spark).
+
+## Resume↔repo reconciliation (preliminary — full table in INTERVIEW_GUIDE.md once written)
+- **"Lambda, Step Functions"**: NOT found anywhere in the repo (`grep -rni "lambda\|step
+  function"` across all `.py`/`.md` files returns zero infra hits — only Python `lambda`
+  expressions in `silver/transforms.py` and `airflow/dags/pipeline_dag.py`, which are
+  language keywords, not AWS Lambda). Repo uses Glue + Airflow only. **Unsupported as written
+  — needs resume correction or repo backfill.**
+- **"58M rows"**: supportable. Sum of the 7 source CSV row counts in README.md =
+  307,511 + 1,716,428 + 27,299,925 + 1,670,214 + 13,605,401 + 10,001,358 + 3,840,312 =
+  **58,441,149** rows. **Confirmed.**
+
+## Decision log (this effort)
+- 2026-06-28: Cloned to `framework/governance-retrofit`, read-before-touch on every real file
+  before writing governance artifacts. boundary_contract.py written against observed reality
+  (pyspark in bronze/ too) rather than the doc's stricter wording — doc gap named, not silenced.

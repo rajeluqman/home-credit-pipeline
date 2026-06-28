@@ -1,0 +1,9 @@
+# Decision Log — Home Credit Risk Pipeline
+
+| Date | Decision | Owner | Doc |
+|---|---|---|---|
+| 2026-05-12 | Kimball star schema over OBT | Data Architect | `docs/ADR/ADR-001-kimball-star-schema.md` |
+| 2026-06-28 | PII mask order: sentinel-null BEFORE SHA-256, made binding (was README-only) | Data Quality Steward | `docs/ADR/ADR-002-pii-mask-order.md` |
+| 2026-06-28 | Kimball-over-OBT sizing math made explicit (was a one-line ADR-001 note) | Data Architect + Infra Reality Agent | `docs/ADR/ADR-003-kimball-over-obt-sizing.md` |
+| 2026-06-28 | boundary_contract.py allows pyspark in BOTH `glue/` and `bronze/` (not Glue-exclusive as ARCHITECTURE.md claims) — reality over doc wording | Scope Guardian | `tests/boundary_contract.py`, flagged in `PROJECT_STATUS.md` "Doc gap found" |
+| 2026-06-28 | Governance retrofit (CLAUDE.md, 11-agent roster, hook, 3 contracts, repo-map, Confluence sync, learning+simulation layer) ported from `creative_intelligence_lab` | Owner (approved pipeline-retrofit plan) | `architecture/pipeline_retrofit/01_OPUS_DECISIONS.md` (in CIL repo) |
