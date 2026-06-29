@@ -37,6 +37,8 @@ REQUIRED_ENV = [
 # Reading order, (repo-relative path, explicit page-name or None).
 # None -> page name is the file stem (keeps idempotency with already-created pages).
 PUBLISH_SET: list[tuple[str, str | None]] = [
+    ("confluence/00_START_HERE.md", "Start Here"),
+    ("README.md", "README"),
     ("docs/BRD.md", None),
     ("docs/DRD.md", None),
     ("docs/DATA_DICTIONARY.md", None),

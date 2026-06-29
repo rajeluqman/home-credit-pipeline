@@ -6,6 +6,39 @@ Built as a banking data engineering portfolio project demonstrating **Kimball St
 
 ---
 
+## Why This Pipeline Exists (Purpose)
+
+A production-grade DE portfolio pipeline that turns 7 disparate Home Credit source tables
+(307,511 applications + bureau + installment history) into a **governed Kimball star schema** a
+risk team could query.
+
+- **Who consumes it:** a (simulated) **credit-risk / underwriting analytics** team, via the BI
+  layer over the Gold star schema — not the raw source CSVs.
+- **What decision it supports:** assessing **default risk and bureau credit exposure** per
+  applicant, with a GDPR-style PII-masking + SCD2 audit trail for compliance.
+- **Why it's built this way:** medallion layering, deliberate Kimball-over-OBT modelling
+  (ADR-001), PII-masking order (ADR-002), and a DQ gate — the shape of a real banking pipeline.
+
+---
+
+## Results & Evidence
+
+> ⚠️ **Run-evidence not yet captured (placeholder — to be filled after a verified end-to-end run).**
+> Transform/dbt/DQ code exists and is wired up, but this repo does not currently contain captured
+> run-outputs (final fact/dim row counts, DQ pass rates, KPI values, BI screenshots). No metrics
+> are fabricated here — this section will be populated only from a real, reproducible run.
+
+What **is** verifiable today (code-existence + reconciled claims):
+
+- **Scope:** Home Credit Default Risk — 307,511 applications across 7 source tables.
+- **Model:** Kimball star — 3 facts + 3 dims, grains documented above and in `docs/DATA_MODEL.md`.
+- **Governance:** PII masking (ADR-002) + SCD2 (`dim_applicant`) + DQ gate, ADRs in `docs/ADR/`.
+
+**Honesty note for reviewers:** resume claims of "Lambda / Step Functions" are **not** supported
+— the real orchestration is **Glue + Airflow** only. Full reconciliation: [`INTERVIEW_GUIDE.md`](INTERVIEW_GUIDE.md).
+
+---
+
 ## Problem Statement
 
 | Problem | Solution |
