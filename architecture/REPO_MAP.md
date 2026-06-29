@@ -8,7 +8,7 @@
 > **This is a pointer, not a cache.** It tells you which file to open — then READ THAT
 > FILE FRESH before you edit or assert about it (ANTI-SHORTCUT PROTOCOL, CLAUDE.md).
 
-**89 files mapped.**
+**88 files mapped.**
 
 ## Architecture Decision Records
 
@@ -126,7 +126,6 @@
 |------|---------|------|---------|
 | `airflow/dags/bronze_ingestion_dag.py` | bronze_ingestion_dag — ingest all 7 tables → Bronze Delta/S3, then GX, then trigger Silver. | — | — |
 | `airflow/dags/gold_dbt_dag.py` | gold_dbt_dag — dbt run (staging → snapshot → intermediate → mart) → dbt test → Slack. | — | — |
-| `airflow/dags/pipeline_dag.py` | Home Credit Risk Pipeline — Main DAG | — | — |
 | `airflow/dags/silver_transforms_dag.py` | silver_transforms_dag — trigger 5 Glue jobs → GX silver suite → trigger Gold. | — | — |
 
 ## Great Expectations suites

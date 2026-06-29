@@ -27,6 +27,12 @@ doesn't affect the resume claims above, but the owner should decide: correct
 `docs/ARCHITECTURE.md`'s wording, or refactor Bronze off delta-spark to make the doc true.
 Logged in `PROJECT_STATUS.md` "Doc gap found."
 
+**(found + resolved 2026-06-29, owner audit ahead of a Microsoft Fabric migration):**
+`airflow/dags/pipeline_dag.py` was a broken, orphaned scaffold DAG (imported 2 modules that
+don't exist in this repo — see `PROJECT_STATUS.md`). If asked "walk me through your Airflow
+setup," answer from the 3 REAL DAGs only (`bronze_ingestion_dag.py`, `silver_transforms_dag.py`,
+`gold_dbt_dag.py`) — the orphaned file was removed, not a 4th DAG that ever ran.
+
 ## Interview Q&A drills (answer from the artifact, not memory)
 1. **"Why Kimball over OBT?"** → cite `docs/ADR/ADR-001` + the sizing math in `ADR-003`
    (G.1X×2 ≈ 32GB executor ceiling vs 27M-row bureau_balance fan-out risk).
