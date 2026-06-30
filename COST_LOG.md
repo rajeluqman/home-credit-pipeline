@@ -79,3 +79,25 @@ credit consumption — this bridge has no auto-ingest component, so no per-notif
 ongoing accrual risk after this load. **Teardown surface added by this entry:** the `STAGE` +
 widened `STORAGE_ALLOWED_LOCATIONS` + widened IAM policy — no `PIPE`, no S3 event notification, no
 SQS, consistent with the design goal of not doubling ADR-004's still-open teardown debt.
+
+**2026-06-30 (continued) — Gate-2 condition work: dev-Snowpipe credit re-quantification +
+`glue_silver_bureau` re-run for CloudWatch peak-memory evidence.** Queried
+`SNOWFLAKE.ACCOUNT_USAGE.PIPE_USAGE_HISTORY` for all 4 `PIPE_SILVER_*` pipes, all-time (read-only
+SELECT, `role=ACCOUNTADMIN`): **8.4×10⁻⁸ credits total** (≈$0.0000003 at $4/credit) — all from one
+23,552-byte test file on `PIPE_SILVER_BUREAU_BALANCE` during the original Gate-1 proof; the other
+3 pipes show zero usage. Answers @finops-agent's Gate-2 condition with a real number (the prior
+"cents" estimate was directionally right but five orders of magnitude too high).
+
+Re-ran `glue_silver_bureau` twice this entry to get a real CloudWatch peak-memory reading
+(`INFRA_LIMITS_LOG.md` new row, 2026-06-30): 1st re-run (`--enable-metrics` added but
+`glue_silver_execution_role` lacked `cloudwatch:PutMetricData`, so it published nothing) — 133s,
+266 DPU-seconds, wasted spend, real finding though (root-caused the missing-permission blocker).
+2nd re-run (after owner added `cloudwatch:PutMetricData` to the execution role) — 118s, 236
+DPU-seconds, **successfully published JVM heap metrics**, peak combined heap used ≈2.90 GB / 32 GB
+ceiling. **Incremental Glue spend this entry: 266 + 236 = 502 DPU-seconds ≈ 0.1394 DPU-hours ≈
+$0.061** (same ~$0.44/DPU-hour estimate basis as all prior entries). **Running Phase-2-plus-this-
+entry Glue total: 1,017 + 502 = 1,519 DPU-seconds ≈ $0.186** (estimate, not pulled from AWS
+Billing console — same caveat as the prior entry). No new persistent AWS infrastructure — both
+IAM grants this entry (`home_credit`'s `cloudwatch:ListMetrics`/`GetMetricData`/
+`GetMetricStatistics`, `glue_silver_execution_role`'s `cloudwatch:PutMetricData`) are read/publish
+permissions on existing principals, not new roles or cross-account trust.

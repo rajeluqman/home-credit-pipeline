@@ -1462,3 +1462,66 @@ agent's own verdict — Gate 2 remains closed for Phase-3-planning purposes, unc
 **Still open, carried to next session:** condition 2 (CloudWatch grant + re-run, blocked on owner
 AWS Console action); the original ADR-004 teardown execution itself (only its *instructions* were
 corrected this session, not run — still explicitly deferred); Phase 3 (no go-ahead).
+
+### ▶ Active thread — Condition 2 (CloudWatch peak-memory) closed, all 4 Gate-2 conditions now resolved (2026-06-30, continued)
+Owner chose "grant + re-run now" for condition 2. Two IAM grants were needed, not one — the
+second was a real finding made mid-task, not anticipated upfront.
+
+**Grant 1 — `home_credit` IAM user, `cloudwatch:ListMetrics`/`GetMetricData`/
+`GetMetricStatistics`, Resource `*`** (owner-executed via Console, named `cloudwatch_homecredit`).
+Verified live via a direct `cloudwatch.list_metrics(Namespace="Glue")` call before proceeding —
+first attempt (right after owner said "done") still returned `AccessDeniedException`; re-checked
+again after owner re-confirmed the JSON, this time it succeeded (0 metrics, expected — no job had
+ever run with `--enable-metrics`). **This was read-side only and was not sufficient by itself.**
+
+**Real blocker found:** added `--enable-metrics`+`--enable-continuous-cloudwatch-log` to
+`glue_silver_bureau`'s `DefaultArguments` (`glue.update_job`), re-ran the job (SUCCEEDED, 133s,
+266 DPU-seconds) — **zero metrics appeared anywhere in the account's `Glue` CloudWatch namespace**,
+not just for this job. Root-caused before re-running again: `glue_silver_execution_role`'s inline
+policy (`glue_silver_execution_role_policy`) had S3 + CloudWatch *Logs* permissions but no
+`cloudwatch:PutMetricData` — the job's own execution role, not the calling user, is what needs
+write permission to publish metric datapoints in the first place. `home_credit`'s read grant was
+necessary but not sufficient; this was the actual gate.
+
+**Grant 2 — `glue_silver_execution_role`, new `GlueCloudWatchMetrics` statement,
+`cloudwatch:PutMetricData`, Resource `*`** (owner-executed via Console, appended to the existing
+3-statement policy alongside `GlueDataReadWrite`/`GlueDataListBucket`/`GlueCloudWatchLogs`).
+Verified live via `iam.get_role_policy` before spending again.
+
+**Re-ran `glue_silver_bureau` a 2nd time** (SUCCEEDED, 118s, 236 DPU-seconds) — metrics published
+successfully this time (52 datapoint series in the `Glue` namespace for this run). Pulled
+`glue.driver.jvm.heap.used`/`glue.1.jvm.heap.used` via `GetMetricStatistics` (Maximum, 60s
+periods, over the run's actual start/end window):
+- Driver JVM heap peak used: **1.183 GB** (11.0% of ~10.74 GB allocated driver heap)
+- Executor JVM heap peak used: **1.713 GB** (16.0% of ~10.74 GB allocated executor heap;
+  `glue.1.*` and `glue.ALL.*` agree, confirming a single executor on G.1X×2)
+- **Combined peak ≈ 2.90 GB against the 32 GB G.1X×2 ceiling (≈9% utilized)**
+
+Real, large headroom — not just job-status absence-of-failure. Logged as a new
+`INFRA_LIMITS_LOG.md` row (2026-06-30, "Glue peak JVM heap utilization, `glue_silver_bureau`").
+This closes @infra-reality-agent's Gate-2 condition 1 verbatim ("Add a CloudWatch peak-memory-
+utilization number... so 'no OOM' is backed by a headroom number against the 32 GB ceiling").
+
+**Cost:** logged in `COST_LOG.md` (2026-06-30, "Gate-2 condition work" entry) — 502 DPU-seconds
+(266 wasted on the metrics-less first re-run + 236 on the successful one) ≈ $0.061 incremental,
+bringing the running Glue total to ≈$0.186 (estimate). No new persistent infrastructure — both
+grants are permissions on existing principals (`home_credit`, `glue_silver_execution_role`), not
+new roles/trust.
+
+**All 4 Gate-2 carried-forward conditions are now resolved:**
+1. ✅ Dev-Snowpipe credit re-quantification — 8.4×10⁻⁸ credits, effectively $0.
+2. ✅ CloudWatch peak-memory number — 2.90 GB / 32 GB (≈9%), real measurement.
+3. ✅ `installments_payments` missing log row — backfilled from existing evidence.
+4. ✅ ADR-004 teardown rescoping — correction written into the ADR (not yet executed; still
+   deferred per owner instruction, only the *instructions* were fixed).
+
+**Gates re-run after this entry's edits:** `python3 tests/identity_contract.py` → exit 0 OK.
+`python3 tests/boundary_contract.py` → exit 0 OK. `python3 tests/doc_reference_contract.py` →
+exit 1, same 9 pre-existing violations, none new (re-verified, not assumed — see command output
+immediately before this entry was written). `python3 scripts/gen_repo_map.py --check` → OK, 109
+files (no new files created this entry).
+
+**Not yet done:** committing/pushing this entry's edits (`INFRA_LIMITS_LOG.md`, `COST_LOG.md`,
+this file) — pending the same kind of explicit confirmation as the prior commit this session.
+Original ADR-004 teardown execution and Phase 3 remain exactly as stated above: deferred, no
+go-ahead.
