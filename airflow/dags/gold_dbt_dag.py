@@ -1,5 +1,5 @@
 """
-gold_dbt_dag — dbt run (staging → snapshot → intermediate → mart) → dbt test → Slack.
+gold_dbt_dag — dbt run (staging → intermediate → snapshot → mart) → dbt test → Slack.
 
 Schedule: None (triggered by silver_transforms_dag via TriggerDagRunOperator)
 dbt project: dbt_home_credit/ | profiles: dbt_home_credit/profiles.yml
@@ -51,14 +51,14 @@ with DAG(
         bash_command=f"{DBT_CMD} run --select staging --target {ENV}",
     )
 
-    dbt_snapshot = BashOperator(
-        task_id="dbt_snapshot",
-        bash_command=f"{DBT_CMD} snapshot --target {ENV}",
-    )
-
     dbt_intermediate = BashOperator(
         task_id="dbt_run_intermediate",
         bash_command=f"{DBT_CMD} run --select intermediate --target {ENV}",
+    )
+
+    dbt_snapshot = BashOperator(
+        task_id="dbt_snapshot",
+        bash_command=f"{DBT_CMD} snapshot --target {ENV}",
     )
 
     dbt_mart = BashOperator(
@@ -83,4 +83,4 @@ with DAG(
         trigger_rule=TriggerRule.ONE_FAILED,
     )
 
-    dbt_staging >> dbt_snapshot >> dbt_intermediate >> dbt_mart >> dbt_test >> [slack_success, slack_failure]
+    dbt_staging >> dbt_intermediate >> dbt_snapshot >> dbt_mart >> dbt_test >> [slack_success, slack_failure]

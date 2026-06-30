@@ -8,7 +8,7 @@
 > **This is a pointer, not a cache.** It tells you which file to open — then READ THAT
 > FILE FRESH before you edit or assert about it (ANTI-SHORTCUT PROTOCOL, CLAUDE.md).
 
-**93 files mapped.**
+**107 files mapped.**
 
 ## Architecture Decision Records
 
@@ -30,6 +30,7 @@
 | `PROJECT_STATUS.md` | Home Credit Risk Pipeline — Project Status | — | — |
 | `README.md` | home-credit-risk-pipeline | — | — |
 | `confluence/00_START_HERE.md` | Start Here — Home Credit Risk Pipeline | — | — |
+| `docs/ADDENDUM-A_local-dev-smart-sampling.md` | Addendum A — Local-Dev Execution & Smart Sampling (Phase 1) | — | — |
 | `docs/ARCHITECTURE.md` | Architecture: Home Credit Risk Pipeline | — | — |
 | `docs/BRD.md` | BRD: Home Credit Risk Pipeline | — | — |
 | `docs/DATA_DICTIONARY.md` | Data Dictionary: Home Credit Risk Pipeline | — | — |
@@ -116,6 +117,7 @@
 | `bronze/download_dataset.py` | WHAT : Download Home Credit dataset dari Kaggle Competition API | — | — |
 | `bronze/generate_dev_data.py` | Generate synthetic dev data for Phase 4a local testing. | — | — |
 | `bronze/ingest_bronze.py` | Bronze ingestion — parameterised by --table and --env. | — | — |
+| `bronze/promote_sample_to_s3.py` | Phase-1 Gate-1 bridge — owner-approved one-time override (PROJECT_STATUS.md | — | — |
 
 ## Silver (local/pandas mirror)
 
@@ -136,6 +138,17 @@
 | File | Purpose | Uses | Used by |
 |------|---------|------|---------|
 | `gx/.gitignore` | — | — | — |
+| `gx/expectations/.ge_store_backend_id` | — | — | — |
+| `gx/expectations/bronze_POS_CASH_balance_suite.json` | — | — | — |
+| `gx/expectations/bronze_application_train_suite.json` | — | — | — |
+| `gx/expectations/bronze_bureau_balance_suite.json` | — | — | — |
+| `gx/expectations/bronze_bureau_suite.json` | — | — | — |
+| `gx/expectations/bronze_credit_card_balance_suite.json` | — | — | — |
+| `gx/expectations/bronze_installments_payments_suite.json` | — | — | — |
+| `gx/expectations/bronze_previous_application_suite.json` | — | — | — |
+| `gx/expectations/silver_application_suite.json` | — | — | — |
+| `gx/expectations/silver_bureau_balance_suite.json` | — | — | — |
+| `gx/expectations/silver_bureau_suite.json` | — | — | — |
 | `gx/great_expectations.yml` | — | — | — |
 | `gx/plugins/custom_data_docs/styles/data_docs_custom_styles.css` | — | — | — |
 | `gx/run_bronze_suite.py` | Run GX bronze_suite against Bronze parquet files (dev: local, cloud: S3). | — | — |
@@ -206,4 +219,5 @@
 |------|---------|------|---------|
 | `requirements.txt` | — | — | — |
 | `scripts/gen_repo_map.py` | Repo-map generator — the NAVIGATION half of the ANTI-SHORTCUT PROTOCOL (see CLAUDE.md). | — | — |
+| `scripts/smart_sample.py` | Smart sampler — stratified anchor + referential closure over the 7 Home Credit source CSVs. | — | — |
 | `scripts/sync_docs_to_confluence.py` | Publish this repo's real docs/ set to Confluence as living documentation. | — | — |

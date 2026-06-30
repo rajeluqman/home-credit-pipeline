@@ -58,13 +58,8 @@ def load_env(env: str):
 
 
 def ingest_dev(table: str, ingestion_date: str) -> dict:
-    """Read local dev sample CSV, add metadata cols, write local parquet."""
-    if table == "application_train":
-        source = Path("data") / "application_train_dev_1000rows.csv"
-        if not source.exists():
-            source = Path("data") / "application_train.csv"
-    else:
-        source = Path("data") / S3_SOURCE_FILENAME[table]
+    """Read local smart-sample CSV (data/sample/), add metadata cols, write local parquet."""
+    source = Path("data") / "sample" / S3_SOURCE_FILENAME[table]
 
     if not source.exists():
         log.warning(f"Dev source not found: {source} — skipping {table}")
