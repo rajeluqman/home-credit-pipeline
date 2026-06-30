@@ -8,7 +8,7 @@
 > **This is a pointer, not a cache.** It tells you which file to open — then READ THAT
 > FILE FRESH before you edit or assert about it (ANTI-SHORTCUT PROTOCOL, CLAUDE.md).
 
-**88 files mapped.**
+**93 files mapped.**
 
 ## Architecture Decision Records
 
@@ -29,6 +29,7 @@
 | `INTERVIEW_GUIDE.md` | Interview Guide — Home Credit Risk Pipeline | — | — |
 | `PROJECT_STATUS.md` | Home Credit Risk Pipeline — Project Status | — | — |
 | `README.md` | home-credit-risk-pipeline | — | — |
+| `confluence/00_START_HERE.md` | Start Here — Home Credit Risk Pipeline | — | — |
 | `docs/ARCHITECTURE.md` | Architecture: Home Credit Risk Pipeline | — | — |
 | `docs/BRD.md` | BRD: Home Credit Risk Pipeline | — | — |
 | `docs/DATA_DICTIONARY.md` | Data Dictionary: Home Credit Risk Pipeline | — | — |
@@ -88,13 +89,15 @@
 | File | Purpose | Uses | Used by |
 |------|---------|------|---------|
 | `dbt_home_credit/macros/generate_surrogate_key.sql` | (no leading -- comment) | — | — |
+| `dbt_home_credit/macros/test_not_in.sql` | (no leading -- comment) | — | — |
 
 ## dbt — other
 
 | File | Purpose | Uses | Used by |
 |------|---------|------|---------|
+| `dbt_home_credit/.user.yml` | — | — | — |
 | `dbt_home_credit/dbt_project.yml` | — | — | — |
-| `dbt_home_credit/sources.yml` | — | — | — |
+| `dbt_home_credit/models/sources.yml` | — | — | — |
 
 ## AWS Glue (Silver, PySpark)
 
@@ -125,14 +128,16 @@
 | File | Purpose | Uses | Used by |
 |------|---------|------|---------|
 | `airflow/dags/bronze_ingestion_dag.py` | bronze_ingestion_dag — ingest all 7 tables → Bronze Delta/S3, then GX, then trigger Silver. | — | — |
-| `airflow/dags/gold_dbt_dag.py` | gold_dbt_dag — dbt run (staging → snapshot → intermediate → mart) → dbt test → Slack. | — | — |
+| `airflow/dags/gold_dbt_dag.py` | gold_dbt_dag — dbt run (staging → intermediate → snapshot → mart) → dbt test → Slack. | — | — |
 | `airflow/dags/silver_transforms_dag.py` | silver_transforms_dag — trigger 5 Glue jobs → GX silver suite → trigger Gold. | — | — |
 
 ## Great Expectations suites
 
 | File | Purpose | Uses | Used by |
 |------|---------|------|---------|
+| `gx/.gitignore` | — | — | — |
 | `gx/great_expectations.yml` | — | — | — |
+| `gx/plugins/custom_data_docs/styles/data_docs_custom_styles.css` | — | — | — |
 | `gx/run_bronze_suite.py` | Run GX bronze_suite against Bronze parquet files (dev: local, cloud: S3). | — | — |
 | `gx/run_silver_suite.py` | Run GX silver_suite — validates Silver layer data quality gates. | — | — |
 

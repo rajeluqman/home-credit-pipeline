@@ -24,7 +24,7 @@ jobs:
       - name: Install tooling
         run: |
           python -m pip install --upgrade pip
-          pip install ruff pytest pandas great-expectations
+          pip install ruff pytest pandas great-expectations python-dotenv
 
       - name: Lint (ruff)
         run: ruff check bronze/ silver/ glue/ gx/ scripts/ tests/ .claude/hooks/ simulation/
@@ -59,7 +59,7 @@ jobs:
 
       - name: Guard — no secrets / .env committed
         run: |
-          if git ls-files | grep -E '(^|/)\.env(\.[a-z]+)?$'; then
+          if git ls-files | grep -E '(^|/)\.env(\.[a-z]+)?$' | grep -v '\.env\.example$'; then
             echo "::error::.env must not be committed"; exit 1
           fi
           echo "no .env tracked - ok"
