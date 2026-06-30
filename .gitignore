@@ -1,9 +1,7 @@
-# Claude
-CLAUDE.md
-.claude/
+# Claude — CLAUDE.md, .claude/, PROJECT_STATUS.md, COST_LOG.md are now INTENTIONALLY committed
+# (pipeline-retrofit governance pass, 2026-06-28) — same pattern as creative_intelligence_lab's
+# own CLAUDE.md "Intentionally committed" section. Self-contained portfolio repo by design.
 HOW_IT_WORKS.txt
-PROJECT_STATUS.md
-COST_LOG.md
 docs/JOURNEY_LOG.md
 docs/INTERVIEW_GUIDE.md
 docs/DEBATE_LOG_phase_*.md

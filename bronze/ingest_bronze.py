@@ -9,7 +9,6 @@ PK nulls → quarantine path. Pipeline continues with clean rows.
 
 import os
 import argparse
-import hashlib
 import logging
 from datetime import date, datetime
 from pathlib import Path
@@ -59,13 +58,8 @@ def load_env(env: str):
 
 
 def ingest_dev(table: str, ingestion_date: str) -> dict:
-    """Read local dev sample CSV, add metadata cols, write local parquet."""
-    if table == "application_train":
-        source = Path("data") / "application_train_dev_1000rows.csv"
-        if not source.exists():
-            source = Path("data") / "application_train.csv"
-    else:
-        source = Path("data") / S3_SOURCE_FILENAME[table]
+    """Read local smart-sample CSV (data/sample/), add metadata cols, write local parquet."""
+    source = Path("data") / "sample" / S3_SOURCE_FILENAME[table]
 
     if not source.exists():
         log.warning(f"Dev source not found: {source} — skipping {table}")
@@ -95,13 +89,11 @@ def ingest_dev(table: str, ingestion_date: str) -> dict:
 
 def ingest_cloud(table: str, ingestion_date: str, env: str) -> dict:
     """Read S3 CSV → write Delta to S3. Requires delta-spark + pyspark."""
-    import boto3
     from pyspark.sql import SparkSession
     from pyspark.sql import functions as F
     from delta import configure_spark_with_delta_pip
 
     bucket = os.environ[f"S3_BUCKET_{env.upper()}"]
-    region = os.getenv("AWS_REGION", "ap-southeast-1")
     filename = S3_SOURCE_FILENAME[table]
     s3_source = f"s3://{bucket}/landing/{filename}"
     s3_target = f"s3://{bucket}/bronze/{table}/ingestion_date={ingestion_date}/"

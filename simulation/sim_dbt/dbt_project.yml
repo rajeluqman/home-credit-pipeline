@@ -1,0 +1,12 @@
+name: 'sim_home_credit'
+version: '1.0.0'
+config-version: 2
+
+profile: 'sim'
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+
+models:
+  sim_home_credit:
+    +schema: HOME_CREDIT_RISK_SIM

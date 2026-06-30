@@ -60,16 +60,14 @@ def validate_kaggle_credentials():
     WHY  : Fail fast sebelum API call
     WHEN : Sebelum download
     """
-    username = os.getenv("KAGGLE_USERNAME")
-    key = os.getenv("KAGGLE_KEY")
-    if not username or not key:
+    token = os.getenv("KAGGLE_API_TOKEN")
+    if not token:
         raise EnvironmentError(
-            "KAGGLE_USERNAME dan KAGGLE_KEY mesti diset dalam .env.\n"
-            "Setup: https://www.kaggle.com/settings → API → Create New Token"
+            "KAGGLE_API_TOKEN mesti diset dalam .env.\n"
+            "Setup: https://www.kaggle.com/settings/api → Create New Token"
         )
-    os.environ["KAGGLE_USERNAME"] = username
-    os.environ["KAGGLE_KEY"] = key
-    log.info(f"Kaggle credentials validated — user: {username}")
+    os.environ["KAGGLE_API_TOKEN"] = token
+    log.info("Kaggle credentials validated")
 
 
 def download_competition_dataset(dest_dir: str = "data") -> str:
@@ -197,6 +195,9 @@ def main():
     )
     parser.add_argument("--env", default="dev", choices=["dev", "staging", "prod"])
     parser.add_argument("--rows", type=int, default=None)
+    parser.add_argument("--keep-local", action="store_true",
+                        help="Dev: keep local raw CSVs after S3 upload (default: delete — Flow B, "
+                             "raw lives in S3 and scripts/smart_sample.py streams it from there).")
     args = parser.parse_args()
 
     log.info(f"=== Dataset Acquisition — env: {args.env} ===")
@@ -207,10 +208,19 @@ def main():
     data_dir = download_competition_dataset(dest_dir="data")
 
     if args.env == "dev":
+        # Flow B (docs/ADDENDUM-A_local-dev-smart-sampling.md §2): land raw in the S3 dev bucket =
+        # durable source-of-truth, then scripts/smart_sample.py STREAMS it from there. The 7 GB raw
+        # need not persist on the ephemeral Codespace disk.
         dev_rows = args.rows or int(os.getenv("DEV_SAMPLE_ROWS", "1000"))
-        sample_path = sample_dev_data(data_dir, rows=dev_rows)
-        log.info(f"=== Done — dev dataset: {sample_path} ===")
-        log.info(f"Set DATASET_SOURCE_PATH={sample_path} dalam .env.dev")
+        sample_dev_data(data_dir, rows=dev_rows)  # naive head sample kept for the existing local-ingest path
+        uploaded = upload_all_to_s3(data_dir, env="dev")
+        landing = f"s3://{os.getenv('S3_BUCKET_DEV')}/landing"
+        if not args.keep_local:
+            for fname in ALL_FILES:
+                (Path(data_dir) / fname).unlink(missing_ok=True)
+            log.info("Removed local raw CSVs after upload (Flow B; pass --keep-local to retain)")
+        log.info(f"=== Done — {len(uploaded)} raw files in {landing}/ ===")
+        log.info(f"Next: python scripts/smart_sample.py --source-dir {landing} --out-dir data/sample")
     else:
         uploaded = upload_all_to_s3(data_dir, env=args.env)
         log.info(f"=== Done — {len(uploaded)} files uploaded ke S3 ===")

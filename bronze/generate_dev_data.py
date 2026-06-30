@@ -7,7 +7,6 @@ Output: data/application_train_dev_1000rows.csv + supporting files
 """
 
 import random
-import hashlib
 import pandas as pd
 import numpy as np
 from pathlib import Path
