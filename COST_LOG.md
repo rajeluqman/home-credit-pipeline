@@ -11,7 +11,8 @@
 ## Snowflake
 | Resource | Tier | Usage | Risk |
 |---|---|---|---|
-| Compute | `COMPUTE_WH` (dev target) | `dbt build` staging→snapshot→intermediate→mart | Monitor warehouse auto-suspend; dev/staging/prod schema split limits blast radius |
+| Compute | `HOME_CREDIT_WH` (dev target, X-Small, auto-suspend 60s) — dedicated warehouse created 2026-06-30, replaces shared `COMPUTE_WH` | `dbt build` staging→snapshot→intermediate→mart | Monitor warehouse auto-suspend; dev/staging/prod schema split limits blast radius |
+| Snowpipe auto-ingest | Serverless — ~0.06 credits/1,000 file notifications + load compute-seconds | Silver(S3 Delta)→Snowflake bridge for `SILVER_*` tables (ADR-004, Proposed) | Cents at sample scale (~tens of files across 4 tables for the 4,612-applicant sample) — **not** the concern. Real risk: **persistent, set-and-forget** — pipe stays armed after Gate 1 closes; any future write to `s3://<bucket>/silver/...` (re-run Glue job, unrelated upload) silently re-fires and burns credits with no human gate. @finops-agent condition (2026-06-30): requires a documented teardown step (DROP PIPE + remove S3 event notification + delete/disable IAM role) once Gate-1 evidence is captured, plus monthly review until then. |
 
 ## Status
 Phase 4b (cloud promote) is ⏳ per README.md "Phase Completion" — no real cloud cost data

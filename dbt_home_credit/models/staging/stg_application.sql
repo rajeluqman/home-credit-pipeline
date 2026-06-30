@@ -27,3 +27,8 @@ SELECT
     ingestion_date::DATE            AS ingestion_date
 FROM {{ source('silver', 'silver_application') }}
 WHERE SK_ID_CURR IS NOT NULL
+-- Idempotency guard (ADR-004 @data-architect condition): the Snowpipe COPY INTO landing
+-- table can hold duplicate SK_ID_CURR rows on a re-fired load; collapse to one row per
+-- applicant here, BEFORE int_applicant_attributes -> snap_applicant, so dbt snapshot never
+-- sees two rows for one key. The pipe cannot dedup (MERGE is not a legal pipe body).
+QUALIFY ROW_NUMBER() OVER (PARTITION BY SK_ID_CURR ORDER BY ingestion_date DESC) = 1
