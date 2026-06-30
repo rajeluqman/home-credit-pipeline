@@ -170,8 +170,7 @@ GX gate : DAYS_BIRTH_MASKED not null | DAYS_EMPLOYED_MASKED not in sha256('36524
 home-credit-pipeline/
 ├── bronze/
 │   ├── download_dataset.py             # Kaggle Competition API → S3 (env-aware)
-│   ├── ingest_bronze.py                # CSV → Delta Lake, PK quarantine, metadata cols
-│   └── generate_dev_data.py            # Synthetic dev data — exact schema match
+│   └── ingest_bronze.py                # CSV → Delta Lake, PK quarantine, metadata cols
 ├── silver/
 │   └── transforms.py                   # Pandas transforms — mirrors Glue logic (local testing)
 ├── glue/

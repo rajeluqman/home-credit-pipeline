@@ -30,9 +30,12 @@ passes; Phase 3 only after Gate 2.
 ## 2. Smart sampling spec
 
 **Phase 1 uses real Kaggle data only.** The synthetic dev CSVs were deleted (2026-06-30); the
-generator script `bronze/generate_dev_data.py` remains as an offline code fallback but its output
-is no longer used — synthetic data cannot validate real value distributions, PII patterns, or
-referential edge cases. The sampler is `scripts/smart_sample.py` (built 2026-06-30).
+synthetic-data generator script (formerly bronze/generate_dev_data.py) was removed entirely
+(2026-06-30, owner decision — supersedes the earlier "keep as offline fallback" call) — synthetic
+data cannot validate real value distributions, PII patterns, or referential edge cases, and the
+generator wrote to the same filenames as real Kaggle downloads (data/application_train.csv etc.),
+a live contamination risk if ever run by mistake. The sampler is `scripts/smart_sample.py` (built
+2026-06-30).
 
 **Flow B — raw is the durable S3 source-of-truth, never persisted in Codespace.** The Kaggle API
 must write to a local filesystem (no direct Kaggle→S3 pipe), so raw transits Codespace **once**
@@ -133,12 +136,16 @@ runs belong to Phase 2 on AWS Glue, where ADR-003's 32 GB executor budget applie
 No phase advances without its gate. A gate is a checklist with `file:line` evidence (per the
 CLAUDE.md anti-shortcut protocol), signed by the named veto holder.
 
-**Gate 1 — Phase 1 → Phase 2** *(local proven)*
-- [ ] Smart sample passes `tests/identity_contract.py` (SK_ID_CURR + SCD2 one-current-per-applicant)
-- [ ] Sample passes `tests/boundary_contract.py` and `tests/doc_reference_contract.py`
-- [ ] Bronze→Silver→Gold runs end-to-end on the sample; GX bronze (WARN) + silver (FAIL) suites green
-- [ ] Real run-evidence captured (fact/dim row counts, DQ pass rates) in `PROJECT_STATUS.md`
-- [ ] **Sign-off:** @data-architect (grain/identity preserved on slice) **+** @scope-guardian (engine = Glue, no boundary breach)
+**Gate 1 — Phase 1 → Phase 2** *(local proven)* — **CLOSED 2026-06-30**, see
+`PROJECT_STATUS.md` "▶ @scope-guardian Gate-1 sign-off" + "▶ @data-architect Gate-1 sign-off"
+- [x] Smart sample passes `tests/identity_contract.py` (SK_ID_CURR + SCD2 one-current-per-applicant)
+- [x] Sample passes `tests/boundary_contract.py` (clean) and `tests/doc_reference_contract.py`
+  (9 pre-existing parser-limitation false positives, independently confirmed by both veto holders
+  via spot-check — every referenced file genuinely exists on disk; not new drift, not a grain/
+  scope issue — see `PROJECT_STATUS.md` sign-off entries for the file:line evidence)
+- [x] Bronze→Silver→Gold runs end-to-end on the sample; GX bronze (WARN) + silver (FAIL) suites green
+- [x] Real run-evidence captured (fact/dim row counts, DQ pass rates) in `PROJECT_STATUS.md`
+- [x] **Sign-off:** @data-architect (grain/identity preserved on slice) **+** @scope-guardian (engine = Glue, no boundary breach) — both APPROVE, 2026-06-30
 
 **Gate 2 — Phase 2 → Phase 3** *(cloud proven)*
 - [ ] Same logic runs on full 58.4M via real AWS Glue → Snowflake STAGING/PROD

@@ -8,7 +8,7 @@
 > **This is a pointer, not a cache.** It tells you which file to open — then READ THAT
 > FILE FRESH before you edit or assert about it (ANTI-SHORTCUT PROTOCOL, CLAUDE.md).
 
-**107 files mapped.**
+**108 files mapped.**
 
 ## Architecture Decision Records
 
@@ -17,6 +17,7 @@
 | `docs/ADR/ADR-001-kimball-star-schema.md` | ADR-001: Data Modelling Paradigm — Kimball Star Schema | — | — |
 | `docs/ADR/ADR-002-pii-mask-order.md` | ADR-002: PII Masking Order — Sentinel-Null Before SHA-256 | — | — |
 | `docs/ADR/ADR-003-kimball-over-obt-sizing.md` | ADR-003: Kimball-over-OBT Sizing Math (free-tier Glue OOM risk) | — | — |
+| `docs/ADR/ADR-004-snowpipe-silver-gold-bridge.md` | ADR-004: Snowpipe Auto-Ingest — Silver (S3 Delta) → Snowflake Gold Bridge | — | — |
 
 ## Top-level docs
 
@@ -115,7 +116,6 @@
 | File | Purpose | Uses | Used by |
 |------|---------|------|---------|
 | `bronze/download_dataset.py` | WHAT : Download Home Credit dataset dari Kaggle Competition API | — | — |
-| `bronze/generate_dev_data.py` | Generate synthetic dev data for Phase 4a local testing. | — | — |
 | `bronze/ingest_bronze.py` | Bronze ingestion — parameterised by --table and --env. | — | — |
 | `bronze/promote_sample_to_s3.py` | Phase-1 Gate-1 bridge — owner-approved one-time override (PROJECT_STATUS.md | — | — |
 
@@ -210,6 +210,7 @@
 | File | Purpose | Uses | Used by |
 |------|---------|------|---------|
 | `.mcp.json` | — | — | — |
+| `gold/.user.yml` | — | — | — |
 | `gold/profiles.yml` | — | — | — |
 | `setup.sh` | — | — | — |
 
