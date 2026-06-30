@@ -106,6 +106,29 @@ pipe's `notification_channel` SQS ARN → delete or disable the `snowflake_silve
 pipe for Phase 2 is a fresh, deliberate decision, not an assumption that Phase-1's pipe should
 keep running unattended.
 
+**CORRECTION (2026-06-30, Gate-2 thread — must apply before this teardown ever executes):** the
+last clause above ("delete or disable the `snowflake_silver_loader` IAM role") is now WRONG and
+must not be run as originally written. During Gate 2, `gold/load_silver_to_staging.py`'s manual
+`COPY INTO` bridge (Silver S3-staging → Snowflake STAGING, see `PROJECT_STATUS.md` "Silver(S3
+staging)→Snowflake STAGING bridge" entry) had `snowflake_silver_loader`'s inline policy
+**widened, not replaced**, to also grant read on `home-credit-risk-staging/silver/*` — the same
+role and the same `STORAGE INTEGRATION HOME_CREDIT_SILVER_INT` now back both the dev Snowpipe
+*and* the staging `COPY INTO` bridge. Deleting or disabling the role, or revoking its trust
+policy, per the original wording would break the staging bridge too, not just the dev Snowpipe.
+**Rescoped teardown (this is the binding version):** `DROP PIPE <each of the 4 dev pipes>;` →
+remove the S3 bucket event notification on `home-credit-risk-dev-1` (the one pointing at the
+pipes' `notification_channel` SQS ARN) → **do NOT delete/disable `snowflake_silver_loader` or
+revoke its trust policy** — instead, narrow its inline policy's `Resource` list back down to
+drop the `home-credit-risk-dev-1/silver/*` entry only, leaving the
+`home-credit-risk-staging/silver/*` entry (used by the staging bridge) intact. Also leave
+`STORAGE INTEGRATION HOME_CREDIT_SILVER_INT` itself in place (just drop the dev-bucket entry
+from its `STORAGE_ALLOWED_LOCATIONS` to mirror the IAM narrowing) rather than dropping the
+integration outright, since the staging bridge's external stage (`HOME_CREDIT_RISK.STAGING.
+SILVER_STAGE`) depends on it. Log the (now-rescoped) teardown date and exact actions taken in
+`COST_LOG.md`, same as the original instruction. This correction does not change *whether* the
+teardown should run — it is still deferred per explicit owner instruction (see
+`PROJECT_STATUS.md`) — only *what* "teardown" means once it does.
+
 ## Alternatives Rejected
 - **Ad-hoc Python loader** (`write_pandas` from S3 Silver Delta straight into the existing
   Snowflake tables): rejected — one-off proof value only, no production-automation value, would

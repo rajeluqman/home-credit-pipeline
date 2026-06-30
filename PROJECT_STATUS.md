@@ -1262,3 +1262,203 @@ above, `@finops-agent` APPROVE WITH CONDITION here). Per `docs/ADDENDUM-A_local-
 the conditions logged in both sign-off sections above being tracked, not forgotten. Owner should
 confirm this reading explicitly before Phase 3 (Airflow orchestration) work begins, consistent
 with this file's "no phase advances without its gate" discipline.
+
+### ▶ Opus handover prompt (copy-paste into a fresh session, branch `feature/gold-dbt-snowflake-sample`)
+```
+You are continuing the Home Credit pipeline on branch feature/gold-dbt-snowflake-sample (pushed
+to origin, commit a277bd7 is the last one — verify with `git log` before trusting that hash).
+This repo is GOVERNED — obey CLAUDE.md's STOP-GATE + ANTI-SHORTCUT protocol: read-before-touch
+(read every file THIS session, never assert from memory), enumerate don't sample,
+reconcile-before-done with file:line evidence.
+
+Read PROJECT_STATUS.md's Phase 2 thread in full, ending with the two Gate-2 sign-off sections
+("▶ @infra-reality-agent Gate-2 sign-off" and "▶ @finops-agent Gate-2 sign-off") and the
+"Gate 2 — both required sign-offs now recorded" summary just above this prompt. Summary:
+
+**Gate 2 is closed for Phase-3-planning purposes** — the Silver(S3 staging)→Snowflake STAGING
+bridge was built as a manual `COPY INTO` (`gold/load_silver_to_staging.py`), deliberately NOT a
+second Snowpipe, specifically to avoid doubling ADR-004's still-open dev-Snowpipe teardown debt.
+All 4 in-scope tables (silver_application/bureau/bureau_balance/installments) loaded to
+`HOME_CREDIT_RISK.STAGING` with exact row-count match + PK uniqueness on the full 58.4M-row
+scale. Both required sign-offs (@finops-agent, @infra-reality-agent) recorded, both APPROVE WITH
+CONDITION.
+
+**A real incident happened and was fixed this session, worth knowing about before spawning
+either agent again:** both `@finops-agent` and `@infra-reality-agent` only have `Read`/`Write`
+tools (no `Edit` — check `.claude/agents/finops-agent.md` and `.claude/agents/infra-reality-agent.md`
+to confirm this is still true). Both, when asked to "append" their sign-off to
+`PROJECT_STATUS.md`, called `Write` with a near-empty placeholder instead of the full file +
+their section, destroying 923 of 926 lines. Caught both times via `git diff --stat` immediately
+after each agent's tool call, restored from `git show HEAD:PROJECT_STATUS.md` + reapplied
+in-session edits, and the second agent was stopped mid-self-correction via `SendMessage` before
+it could repeat the mistake (it then crashed on its own with a 32000-output-token API error
+mid-reconstruction-attempt). **If you spawn either agent again for a Write-targeting task on a
+large file, watch this closely** — either request the agent only return its verdict as text
+(and you do the file write yourself with `Edit`), or get these agents' tool list widened to
+include `Edit` so they stop attempting full-file reconstructions. This has not been raised with
+the owner as a fix yet — flag it if relevant.
+
+**Carried-forward conditions from the Gate-2 sign-offs (not blockers, but real, not optional):**
+1. (@finops-agent) Re-quantify the dev Snowpipe's actual Snowflake credit consumption since
+   Gate 1 — it has been armed and live since then with no re-measurement; the original "cents"
+   estimate is sample-scale and stale.
+2. (@infra-reality-agent) Add a CloudWatch peak-executor-memory number (not just wall-time/
+   DPU-seconds) to `INFRA_LIMITS_LOG.md` for at least one large-table Glue run, so "no OOM" is
+   backed by a headroom number against the 32 GB G.1X×2 ceiling, not only job-status
+   absence-of-failure.
+3. (@infra-reality-agent) Confirm/clarify `installments_payments`'s real-Glue status —
+   **note this condition may be based on incomplete information**: `glue_silver_installments`
+   DID run successfully on real AWS Glue this Phase-2 thread (90s, 180 DPU-seconds, see
+   PROJECT_STATUS.md "Real AWS Glue jobs created + 4/5 run" entry) but `@infra-reality-agent`
+   wrote its sign-off after reading a **corrupted** PROJECT_STATUS.md (the incident above) and
+   built its verdict mostly off `INFRA_LIMITS_LOG.md`, which lacks an explicit "Observed" row for
+   `installments_payments` specifically. This is likely just a missing log entry, not a missing
+   run — verify by reading `INFRA_LIMITS_LOG.md` fresh, and if the run evidence already exists in
+   `PROJECT_STATUS.md`, just add the missing `INFRA_LIMITS_LOG.md` row rather than re-running the
+   job.
+4. ADR-004's dev-Snowpipe teardown plan needs a real correction before it's ever executed: the
+   `snowflake_silver_loader` IAM role is now used by **both** the dev Snowpipe AND this session's
+   new staging COPY INTO bridge (its policy was widened, not replaced, to add staging-bucket
+   read). Tearing down the dev Snowpipe per ADR-004's original Consequences text ("delete or
+   disable the IAM role") would break the staging bridge too — the teardown must be rescoped to
+   only the dev-specific PIPE/S3-event/trust narrowing, not full role deletion. Not yet written
+   down as an ADR-004 amendment — flagged in PROJECT_STATUS.md but not actioned.
+
+**Open question, not yet confirmed by the owner:** Gate 2's checklist literally says "Snowflake
+STAGING/PROD" — only STAGING was populated this thread. `HOME_CREDIT_RISK.PROD` schema exists
+and is empty. Ask the owner explicitly whether PROD population is required before treating Gate 2
+as fully closed, rather than assuming the STAGING-only reading from the prior session's note
+still holds.
+
+**Not started, no go-ahead given yet:** Phase 3 (Apache Airflow orchestration — 3 chained DAGs,
+Slack alerting, migration to the main Airflow instance, Gate 3 sign-off from
+@data-platform-engineer). This is the next major phase per `docs/ADDENDUM-A` §1, but starting it
+is a fresh decision, not an assumption — ask the owner before beginning any Phase 3 work, same
+as every phase transition in this project so far.
+
+**Also still open/deferred, unresolved by any session yet:** ADR-004's original dev-Snowpipe
+teardown (DROP PIPE ×4 / S3 event notification removal / now-needs-rescoping IAM narrowing,
+condition 4 above) — still explicitly deferred per owner instruction from an earlier session,
+do not run it without re-asking, and do not assume the original teardown text is still correct
+without rewriting it per condition 4 first.
+
+No PR has been opened for this branch yet (just pushed to origin with upstream tracking). Update
+PROJECT_STATUS.md with whatever happens, with file:line or command-output evidence, before ending
+the session. Confirm with the owner before any commit/push, and before spawning @finops-agent or
+@infra-reality-agent on any task that requires writing to a large existing file.
+```
+
+### ▶ Active thread — Gate-2 conditions worked (2026-06-30, this session)
+Picked up the handover prompt above. Read-before-touch: re-read this entire file fresh (1,349
+lines, confirmed via `wc -l`) rather than trusting the prompt's summary; confirmed `git log -1`
+HEAD is still `a277bd7` and matches origin before doing anything. Worked the 4 carried-forward
+Gate-2 conditions directly, using only **read-only** AWS/Snowflake calls (consistent with this
+thread's own established scope: ADR-004 condition (c) binds IAM-trust/STORAGE INTEGRATION/PIPE
+*creation* only — see "Mid-session scope clarification" entry above, line ~387) — zero
+mutations made to any cloud resource this session.
+
+**Condition 1 (@finops-agent, dev-Snowpipe credit re-quantification) — RESOLVED, real number
+obtained:** queried `SNOWFLAKE.ACCOUNT_USAGE.PIPE_USAGE_HISTORY` (role=`ACCOUNTADMIN`, read-only
+`SELECT`, scratch script deleted after use) for all 4 `PIPE_SILVER_*` pipes, all-time. Result:
+**8.4×10⁻⁸ credits total** (≈ $0.0000003 at $4/credit standard rate) — all of it from
+`PIPE_SILVER_BUREAU_BALANCE`, 1 file, 23,552 bytes, timestamped 2026-06-30 05:18-05:19 (the
+single test-file copy from the Gate-1 auto-ingest proof, "Auto-ingest proven end-to-end" entry
+above, line ~378). `PIPE_SILVER_APPLICATION`/`_BUREAU`/`_INSTALLMENTS` show **zero rows** in
+`PIPE_USAGE_HISTORY` — no auto-fire events on any of them since creation, consistent with this
+session's S3 writes all targeting the `staging` bucket, which the dev pipes don't watch. The
+"cents" estimate in `COST_LOG.md` was directionally correct but imprecise; the real number is
+five orders of magnitude smaller than even a literal cent. Condition closed with evidence, not
+re-estimated.
+
+**Condition 2 (@infra-reality-agent, CloudWatch peak-memory number) — NOT resolved, real
+blocker found (not a non-finding):** before querying CloudWatch, checked
+`glue.get_job(JobName="glue_silver_bureau")`'s `DefaultArguments` directly — **`--enable-metrics`
+was never set** on the job definition (only `--job-bookmark-option`, `--datalake-formats`,
+`--TempDir`, `--env`, `--bucket`, `--date` are present). AWS Glue only publishes the granular
+`glue.driver.jvm.heap.usage` / executor-memory CloudWatch metrics when that flag is enabled at
+job-run time — it wasn't, for any of the 5 real Glue runs this Phase-2 thread made. Attempted the
+`cloudwatch:ListMetrics` call anyway to confirm rather than assume: it failed clean with
+`AccessDeniedException` — the `home_credit` IAM user has no CloudWatch read permissions at all
+(scoped IAM policy, same minimal-privilege pattern as every other grant this project has made).
+**Net finding: satisfying this condition needs two new things, both owner-decision items — (a) a
+CloudWatch read grant (`cloudwatch:ListMetrics`/`GetMetricData`) added to `home_credit`'s IAM
+policy, same precedent as every prior scoped-grant in this thread, and (b) a re-run of at least
+one Silver Glue job with `--enable-metrics` (and ideally `--enable-continuous-cloudwatch-log`)
+added to its job parameters — a new (small, ~$0.02-0.04) Glue spend, since the metric can't be
+retrieved retroactively for a run that already completed without it enabled.** Not actioned this
+session — surfaced to the owner instead of guessed or skipped.
+
+**Condition 3 (@infra-reality-agent, `installments_payments` missing log row) — RESOLVED, no
+re-run needed, confirmed the run already happened:** `glue_silver_installments` SUCCEEDED on real
+AWS Glue (90s, 180 DPU-seconds — `PROJECT_STATUS.md:739`, "Real AWS Glue jobs created + 4/5 run"
+table), output `silver_installments` 12,861,994 rows / 94.5% retained (`PROJECT_STATUS.md:782`).
+This evidence already existed in this file; `INFRA_LIMITS_LOG.md` was simply missing its own row.
+Added: `INFRA_LIMITS_LOG.md`'s new "Glue OOM risk, full-scale `installments_payments`... (Observed
+— RESOLVED)" row, backfilled from the existing evidence above, explicitly labeled as a backfill
+not a fresh run.
+
+**Condition 4 (ADR-004 teardown rescoping) — RESOLVED, correction written into the ADR itself:**
+`docs/ADR/ADR-004-snowpipe-silver-gold-bridge.md`'s Consequences section (original teardown text
+at lines ~101-107) now has a dated correction block appended directly below it
+(`docs/ADR/ADR-004-snowpipe-silver-gold-bridge.md:109-122`) replacing "delete or disable the
+`snowflake_silver_loader` IAM role" with a narrowed version: drop only the
+`home-credit-risk-dev-1/silver/*` entry from the role's policy and from
+`HOME_CREDIT_SILVER_INT`'s `STORAGE_ALLOWED_LOCATIONS`, leaving the `home-credit-risk-staging/
+silver/*` entries (used by `gold/load_silver_to_staging.py`'s COPY INTO bridge) intact. This is a
+**documentation-only** change — the teardown itself is still not executed and remains explicitly
+deferred per owner instruction (unchanged from the entry above); this only fixes what the
+teardown's instructions say to do, once it does run.
+
+**Gates re-run after this session's edits (`docs/ADR/ADR-004...` is a governed file —
+`.claude/hooks/governance_guard.py` fired its doc-cross-reference nudge on the edit, reviewed:
+the correction is a teardown-instruction fix, not a grain/Kimball/SCD2 change, so no veto-holder
+conflict):** `python3 tests/identity_contract.py` → exit 0 OK. `python3
+tests/boundary_contract.py` → exit 0 OK. `python3 tests/doc_reference_contract.py` → exit 1,
+**same 9 pre-existing violations**, none new (the new ADR-004 correction text added file:line
+refs to already-existing files like `gold/load_silver_to_staging.py` by name only, not in the
+checker's `path:line` syntax, so it didn't add a 10th violation — spot-checked by re-running and
+diffing the violation list against the pre-edit run logged earlier in this file). `python3
+scripts/gen_repo_map.py --check` → OK, 109 files (no new file created, no count change expected
+or observed).
+
+**Process note — credential-handling mistake, self-caught:** while inspecting `.env.dev` for the
+Snowflake/AWS variable names needed for the read-only scripts above, ran `cat .env.dev | grep ...
+| sed 's/(PASSWORD|SECRET|KEY)=.../REDACTED/'` — the regex matched literal `KEY=` but not
+`KEY_ID=`, so `AWS_ACCESS_KEY_ID`'s real value printed unredacted into this session's tool output
+once. Caught and flagged immediately, not silently passed over. Risk is contained (local session
+output, never written to a file, never committed) but worth a permanent fix: a future session
+should read env files via a value-blind method (e.g. `grep -o '^[A-Z_]*='` to list var **names**
+only, never `cat`/unredacted `grep` on a credentials file) rather than relying on a regex that has
+to anticipate every secret-like variable name. Not fixed in tooling this session — flagging for
+whichever agent next touches credential-handling conventions (`@data-platform-engineer` likely
+lane).
+
+**Updated Gate-2 condition tracking:** of the 4 carried-forward conditions, **3 closed this
+session (1, 3, 4)**, **1 genuinely blocked on an owner decision (2 — CloudWatch grant + a small
+new Glue spend)**, not on agent effort. None of these are Phase-3-blocking per either sign-off
+agent's own verdict — Gate 2 remains closed for Phase-3-planning purposes, unchanged from the
+"Gate 2 — both required sign-offs now recorded" summary above.
+
+**Owner decisions obtained this session (AskUserQuestion, 4 questions):**
+1. **Commit + push this session's edits now** — done immediately after this entry (see commit
+   referenced at the top of a future session's `git log`).
+2. **PROD population is NOT required for Gate 2 to close** — STAGING-only is accepted as
+   satisfying the checklist's "Snowflake STAGING/PROD" item for Phase-3-planning purposes. Gate 2
+   is now closed on this point without qualification (the earlier "flagging this reading
+   explicitly" caveat above is resolved — owner confirmed it).
+3. **CloudWatch peak-memory condition: grant + re-run, not deferred.** Owner will add a
+   `cloudwatch:ListMetrics`/`GetMetricData` inline policy grant to the `home_credit` IAM user
+   (AWS Console, same pattern as every prior grant this project has made); once confirmed live,
+   re-run `glue_silver_bureau` with `--enable-metrics` added to its job arguments and pull the
+   real peak-executor-memory number into `INFRA_LIMITS_LOG.md`. **Not yet done as of this entry**
+   — blocked on the owner completing the Console step; next session/turn picks this up by first
+   verifying the grant landed (`iam.get_user_policy` or a live `ListMetrics` retry) before
+   spending on a re-run.
+4. **Phase 3 — NOT started.** Owner explicitly held off; this session's scope stays bounded to
+   the Gate-2 conditions. Do not begin Phase 3 (Airflow DAGs, Slack alerting,
+   `@data-platform-engineer` Gate-3) without a fresh explicit go-ahead, unchanged from every
+   prior phase transition in this project.
+
+**Still open, carried to next session:** condition 2 (CloudWatch grant + re-run, blocked on owner
+AWS Console action); the original ADR-004 teardown execution itself (only its *instructions* were
+corrected this session, not run — still explicitly deferred); Phase 3 (no go-ahead).
