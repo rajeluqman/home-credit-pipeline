@@ -147,10 +147,15 @@ CLAUDE.md anti-shortcut protocol), signed by the named veto holder.
 - [x] Real run-evidence captured (fact/dim row counts, DQ pass rates) in `PROJECT_STATUS.md`
 - [x] **Sign-off:** @data-architect (grain/identity preserved on slice) **+** @scope-guardian (engine = Glue, no boundary breach) — both APPROVE, 2026-06-30
 
-**Gate 2 — Phase 2 → Phase 3** *(cloud proven)*
-- [ ] Same logic runs on full 58.4M via real AWS Glue → Snowflake STAGING/PROD
-- [ ] Glue job stays within free-tier executor memory (no OOM on `bureau_balance`)
-- [ ] **Sign-off:** @finops-agent (AWS free-tier + Snowflake credit) **+** @infra-reality-agent (OOM)
+**Gate 2 — Phase 2 → Phase 3** *(cloud proven)* — **CLOSED 2026-06-30**, see `PROJECT_STATUS.md`
+"▶ @infra-reality-agent Gate-2 sign-off" + "▶ @finops-agent Gate-2 sign-off" + the two
+"Gate-2 condition work" entries (owner confirmed STAGING-only satisfies this checklist; PROD
+population not required)
+- [x] Same logic runs on full 58.4M via real AWS Glue → Snowflake STAGING (PROD intentionally
+  not populated — owner-confirmed, see `PROJECT_STATUS.md`)
+- [x] Glue job stays within free-tier executor memory (no OOM on `bureau_balance`; peak heap
+  ≈2.90 GB / 32 GB ceiling, real CloudWatch measurement, see `INFRA_LIMITS_LOG.md`)
+- [x] **Sign-off:** @finops-agent (AWS free-tier + Snowflake credit) **+** @infra-reality-agent (OOM) — both APPROVE WITH CONDITION, all 4 carried-forward conditions resolved this session
 
 **Gate 3 — Phase 3 complete** *(orchestrated)*
 - [ ] 3 chained Airflow DAGs (bronze→silver→gold) green; Slack alert fires on pass/fail

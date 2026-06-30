@@ -1525,3 +1525,84 @@ files (no new files created this entry).
 this file) — pending the same kind of explicit confirmation as the prior commit this session.
 Original ADR-004 teardown execution and Phase 3 remain exactly as stated above: deferred, no
 go-ahead.
+
+**Update: committed and pushed** (`3bcc3bc`, owner confirmed). `docs/ADDENDUM-A_local-dev-
+smart-sampling.md` §5's Gate 2 checklist was also found out of sync (still showed `[ ]` unchecked
+despite Gate 2 being closed in this file) — fixed same session, all 3 boxes now `[x]` with a
+pointer back to this file's sign-off entries. 4 gates re-run clean after that edit too (same 9
+pre-existing `doc_reference_contract.py` violations, none new; `gen_repo_map.py --check` OK, 109
+files). **Not yet committed as of this entry** — queue for the next commit/push round.
+
+### ▶ Opus handover prompt (copy-paste into a fresh session, branch `feature/gold-dbt-snowflake-sample`)
+```
+You are continuing the Home Credit pipeline on branch feature/gold-dbt-snowflake-sample (pushed
+to origin, commit 3bcc3bc is the last one PUSHED — verify with `git log` and `git status` before
+trusting that hash, since the ADDENDUM-A doc-sync fix below may still be uncommitted depending on
+when this prompt is read). This repo is GOVERNED — obey CLAUDE.md's STOP-GATE + ANTI-SHORTCUT
+protocol: read-before-touch (read every file THIS session, never assert from memory), enumerate
+don't sample, reconcile-before-done with file:line evidence.
+
+Read PROJECT_STATUS.md's two "▶ Active thread — Gate-2 conditions worked" / "Condition 2
+(CloudWatch peak-memory) closed" entries (both 2026-06-30, the tail of this file) before doing
+anything. Summary:
+
+**Gate 2 is now fully closed, no open conditions.** All 4 carried-forward conditions from the
+original Gate-2 sign-offs were resolved this session, with real evidence, not estimates:
+1. Dev-Snowpipe credit re-quantification: **8.4×10⁻⁸ credits total** (effectively $0) via
+   `SNOWFLAKE.ACCOUNT_USAGE.PIPE_USAGE_HISTORY` — all from one Gate-1 test file, zero auto-fire
+   since.
+2. CloudWatch peak-memory: **peak combined JVM heap used ≈2.90 GB against the 32 GB G.1X×2
+   ceiling (≈9%)** — real measurement, not job-status absence-of-failure. Needed two new IAM
+   grants discovered mid-task: `cloudwatch:ListMetrics`/`GetMetricData`/`GetMetricStatistics` on
+   `home_credit` (read side, insufficient alone) and `cloudwatch:PutMetricData` on
+   `glue_silver_execution_role` (the actual blocker — the job's own execution role needs write
+   permission to publish metrics, not just the calling user). `glue_silver_bureau` was re-run
+   twice (first re-run wasted ~$0.029 before the 2nd grant was found necessary).
+3. `installments_payments` missing `INFRA_LIMITS_LOG.md` row: backfilled from already-captured
+   evidence (`glue_silver_installments` SUCCEEDED, 90s/180 DPU-seconds, no re-run needed).
+4. ADR-004 teardown plan correction: `docs/ADR/ADR-004-snowpipe-silver-gold-bridge.md`'s
+   Consequences section now has a dated correction block — the original "delete/disable
+   `snowflake_silver_loader`" teardown instruction would now also break the Gate-2 staging COPY
+   INTO bridge (same role, widened not replaced). Rescoped to narrow only the dev-bucket entries.
+   **Documentation-only — the teardown itself is still NOT executed, still explicitly deferred.**
+
+**Owner-confirmed this session (don't re-ask):** PROD population is NOT required for Gate 2 to
+close — STAGING-only satisfies the checklist's "Snowflake STAGING/PROD" item.
+`docs/ADDENDUM-A_local-dev-smart-sampling.md` §5's Gate 2 checklist boxes were also fixed to `[x]`
+to match (was previously out of sync, still showing unchecked despite closure).
+
+**Owner explicitly declined to start Phase 3 this session — ask again before beginning any
+Phase 3 work**, same discipline as every prior phase transition in this project. Phase 3 scope
+(`docs/ADDENDUM-A...md` §1 + §5 Gate 3): wire 3 chained Apache Airflow DAGs (bronze→silver→gold),
+Slack alerting on pass/fail, migrate settings from the standalone Airflow instance to the main
+one, sign-off from `@data-platform-engineer`. This is the **last of the 3 planned phases** — Gate
+3 closing finishes the rollout described in `docs/ADDENDUM-A...md` §1's table.
+
+**Still open/deferred, unresolved by any session yet (do not action without re-asking):**
+- ADR-004's original dev-Snowpipe teardown (`DROP PIPE` ×4 / S3 event notification removal /
+  `snowflake_silver_loader` IAM policy narrowing per the now-corrected rescoped plan, condition 4
+  above) — still explicitly deferred, only its *instructions* were fixed this session.
+- A real AWS Billing-console reconciliation of the Glue DPU-seconds running total (currently an
+  estimate at ~$0.44/DPU-hour, never cross-checked against actual billing — flagged in
+  `COST_LOG.md` multiple times, never actioned).
+
+**Process notes worth carrying forward:**
+- Both `@finops-agent` and `@infra-reality-agent` still only have `Read`/`Write` tools (no
+  `Edit`) as of this session — re-check `.claude/agents/finops-agent.md` /
+  `.claude/agents/infra-reality-agent.md` before spawning either on a Write-to-large-file task;
+  the full-file-overwrite-destroys-the-file incident from an earlier session (see further up this
+  file) is still a live risk if either agent is asked to "append" again.
+- This session made one credential-handling mistake (caught and flagged, not hidden): a `grep`+
+  `sed` redaction pipeline against `.env.dev` missed `AWS_ACCESS_KEY_ID` (matched literal `KEY=`,
+  not `KEY_ID=`), printing the real access key ID once into tool output. Contained (local session
+  output only, never written to a file or committed), but read env var **names** only
+  (`grep -o '^[A-Z_]*='`) rather than `cat`/loosely-redacted `grep` on credential files going
+  forward.
+- AskUserQuestion option-label phrasing: write from the user's selection perspective ("You [the
+  agent] do X" vs "I [owner] do X myself"), not the agent's own voice — an earlier session's
+  ambiguous wording got auto-mode-classifier-blocked once already.
+
+Update PROJECT_STATUS.md with whatever happens, with file:line or command-output evidence, before
+ending the session. Confirm with the owner before any commit/push, before spawning
+@finops-agent/@infra-reality-agent on any large-file Write task, and before starting Phase 3.
+```
