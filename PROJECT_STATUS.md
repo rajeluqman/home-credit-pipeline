@@ -265,15 +265,21 @@ first) to continue the Gold-layer increment toward Gate 1.
   (data-architect condition + Consequences bullet); `stg_application.sql:34` QUALIFY dedup fix;
   @scope-guardian final APPROVE WITH CONDITION recorded in the ADR checklist; ADR Status line
   updated (3 of 4 sign-offs in, owner pending). All three scope-guardian conditions logged above.
-- **Still not done (next sessions / acceptance step):** owner sign-off; **the `docs/ARCHITECTURE.md`
-  stack-table edit (scope-guardian condition b — must land WITH ADR acceptance, deliberately not
-  done now while ADR is still Proposed)**; the actual `STORAGE INTEGRATION`/IAM role/`STAGE`/`PIPE`/
-  S3-event build (owner-execution-gated, AWS admin creds present but not a go-ahead); the dbt run
-  itself; Gate 1's Gold checklist item; teardown execution post-Gate-1 (condition a). **Gold has
-  not run yet — no dbt command has been executed this thread. NO git commit has been made — all of
-  the above (`PROJECT_STATUS.md`, `COST_LOG.md`, `docs/ADR/ADR-004-...md`,
-  `dbt_home_credit/models/staging/stg_application.sql`, `dbt_home_credit/.user.yml`) is uncommitted
-  working-tree state on `feature/gold-dbt-snowflake-sample` as of this checkpoint.**
+- **ADR-004 ACCEPTED (2026-06-30) — owner reviewed full text and approved.** Owner checkbox
+  checked in the ADR sign-off list; Status line flipped Proposed→Accepted. Scope-guardian
+  condition (b) closed in the same turn: `docs/ARCHITECTURE.md`'s stack table now has a new
+  "Silver→Gold bridge | Snowpipe..." row citing ADR-004, plus a note on the Orchestration row
+  that Snowpipe is the sole named manual-only exception. Commit `a59940d` (ADR correction +
+  dedup fix + scope-guardian sign-off) plus this acceptance turn are the load-bearing history —
+  see `git log` on this branch.
+- **Still not done (genuinely next, all owner-execution-gated):** the actual AWS IAM role +
+  Snowflake `STORAGE INTEGRATION`/`STAGE`/`PIPE`/S3-event build (owner must run this personally —
+  AWS admin creds are present in this Codespace but that is not a go-ahead, ask explicitly first);
+  the Silver(S3)→Snowflake data load itself (today `HOME_CREDIT_RISK.DEV.SILVER_*` still holds the
+  STALE 1,000/1,500/1,500/10,615-row dev sample, not this session's real 4,612/21,799/5,003/
+  162,862-row smart sample); the `dbt run`/`dbt test` on Gold (zero dbt commands executed this
+  entire thread so far); Gate 1's Gold checklist item; teardown execution post-Gate-1 (condition
+  a, binding). **No Gold validation has happened yet — only the governance/design layer is done.**
 
 ### ▶ Opus handover prompt (copy-paste into a fresh session, branch `feature/gold-dbt-snowflake-sample`)
 ```
@@ -283,54 +289,41 @@ ANTI-SHORTCUT protocol: read-before-touch (read every file THIS session, never a
 memory), enumerate don't sample, reconcile-before-done with file:line evidence.
 
 Read PROJECT_STATUS.md "▶ Active thread — Gold (dbt/Snowflake) bridge decision, ADR-004
-(2026-06-30)" in full first — it has the complete trail. Summary: Gate 1
-(docs/ADDENDUM-A_local-dev-smart-sampling.md §5) needs Gold (dbt/Snowflake) to run on this
-session's Silver sample output. No Silver→Snowflake loader existed in the repo; owner chose full
-auto-ingest Snowpipe over lighter alternatives, specifically for portfolio/production-realism
-reasons. A scope-guardian cross-check found this conflicts with docs/ARCHITECTURE.md's locked
-stack and docs/ADDENDUM-A's Phase-1 "manual only" framing — owner chose to proceed via a formal
-ADR amendment rather than a verbal override. docs/ADR/ADR-004-snowpipe-silver-gold-bridge.md was
-written (Status: Proposed) and already has @data-architect and @finops-agent sign-off, both
-APPROVE WITH CONDITION (conditions already incorporated into the ADR text and COST_LOG.md).
+(2026-06-30)" in full first. Summary: ADR-004 (Snowpipe auto-ingest, Silver S3→Snowflake) is now
+**Accepted** — all 4 sign-offs done (data-architect, scope-guardian, finops, owner), the
+COPY-INTO-only technical correction is in the text, stg_application.sql:34 has the QUALIFY dedup
+the data-architect condition required, and docs/ARCHITECTURE.md's stack table already has the
+Snowpipe row. Commit a59940d has the ADR correction + dedup fix; the acceptance + ARCHITECTURE.md
+edit landed in a later commit this same branch (check `git log` for the exact SHA).
 
-IMPORTANT — nothing in this thread is committed to git yet. Check `git status`/`git diff` first;
-docs/ADR/ADR-004-snowpipe-silver-gold-bridge.md, PROJECT_STATUS.md, and COST_LOG.md are the
-relevant changed files on this branch.
+**Nothing about Gold has actually been built or validated yet** — the ADR only cleared the design
+review. `HOME_CREDIT_RISK.DEV.SILVER_*` in Snowflake still holds the STALE 1,000/1,500/1,500/
+10,615-row dev sample, not this session's real 4,612/21,799/5,003/162,862-row smart sample. Zero
+dbt commands have been run this thread.
 
-YOUR TWO TASKS, in order:
+YOUR TASK: walk the owner through the actual cloud build, in order, with THEM executing each
+step (you teach/explain, you do not run it autonomously — this is a binding ADR-004 condition,
+security-sensitive cross-account IAM trust):
+1. AWS IAM role (`snowflake_silver_loader`) with cross-account trust to Snowflake's
+   `STORAGE_AWS_IAM_USER_ARN` — owner-executed, using the `home_credit_setup_admin` least-priv
+   user (Codespace secrets `AWS_ADMIN_ACCESS_KEY_ID`/`AWS_ADMIN_SECRET_ACCESS_KEY` — confirm
+   present, but ASK before using, presence is not a go-ahead).
+2. Snowflake `STORAGE INTEGRATION` (needs `role=ACCOUNTADMIN`, confirmed available on the
+   existing `NOVARTISMANG` credential per PROJECT_STATUS.md) + `STAGE` + auto-ingest `PIPE`
+   (COPY INTO only, per ADR-004's technical correction) + S3 bucket event notification wired to
+   the Snowflake-managed SQS queue.
+3. Verify the pipe actually loads this session's real smart-sample Silver Delta files (not the
+   stale dev sample) into `SILVER_APPLICATION`/`SILVER_BUREAU`/`SILVER_BUREAU_BALANCE`/
+   `SILVER_INSTALLMENTS`.
+4. Run `dbt run` + `dbt test` for Gold, including `dbt snapshot` for `snap_applicant` — confirm
+   `assert_scd2_one_current_per_applicant.sql` passes (proves the QUALIFY dedup actually works
+   against real duplicate-load risk, not just in theory).
+5. Capture Gate 1's Gold run-evidence (docs/ADDENDUM-A §5), then EXECUTE the binding teardown
+   from ADR-004's Consequences section (DROP PIPE, remove S3 event notification, delete/disable
+   the IAM role) — log the teardown date in COST_LOG.md. Do not leave the pipe armed.
 
-1. **Finish ADR-004 — apply a clarification that was discussed with the owner in chat but never
-   written into the file.** Snowflake's `CREATE PIPE ... AS <stmt>` only accepts `COPY INTO` as
-   its body — `MERGE` cannot be used inside a Snowpipe definition. ADR-004's data-architect
-   condition currently offers "(a) MERGE INTO ... replacing COPY INTO" as if it were a real
-   option inside the pipe — it is not, technically. Correct the ADR to state plainly: the pipe's
-   `COPY INTO` stays (it's the only mechanism Snowflake allows), raw landing into
-   `SILVER_APPLICATION` happens as-is including possible duplicates, and the actual
-   dedup/idempotency protection is implemented downstream by adding
-   `QUALIFY ROW_NUMBER() OVER (PARTITION BY SK_ID_CURR ORDER BY ingestion_date DESC) = 1` to
-   `dbt_home_credit/models/staging/stg_application.sql` (NOT yet edited — do that too, it's a
-   small, real, currently-true gap independent of Snowpipe: `stg_application.sql:28-29` has zero
-   dedup today). Re-verify this PIPE-only-supports-COPY-INTO claim yourself before writing it
-   (don't take this prompt's word for it) — check current Snowflake docs/behavior if uncertain.
-
-2. **Get @scope-guardian's final sign-off on the corrected ADR-004 text** (not the earlier
-   informal cross-check, which reviewed the approach before the ADR document existed). Spawn the
-   scope-guardian agent fresh, have it read the final ADR-004 plus docs/ARCHITECTURE.md,
-   docs/ADDENDUM-A, PROJECT_STATUS.md, tests/boundary_contract.py itself (read-before-touch, do
-   not rely on this prompt's summary), and render an explicit APPROVE / APPROVE WITH CONDITION /
-   REJECT verdict on the final text, with file:line citations. Write the verdict into ADR-004's
-   sign-off checklist the same way the data-architect/finops verdicts were recorded.
-
-DO NOT in this session: create any AWS IAM role, Snowflake STORAGE INTEGRATION/STAGE/PIPE, or
-any other cloud infrastructure — that step is explicitly owner-execution-gated (see "Auto mode
-classifier blocked two attempted actions" in PROJECT_STATUS.md) and additionally requires an AWS
-admin credential the owner had not yet provisioned as of this checkpoint (check whether
-AWS_ADMIN_ACCESS_KEY_ID/AWS_ADMIN_SECRET_ACCESS_KEY are present in the environment — if so, ask
-the owner explicitly before using them, do not assume their presence means a go-ahead). Stay
-scoped to: the ADR-004 text fix, the stg_application.sql dedup fix, and the scope-guardian
-sign-off. Update PROJECT_STATUS.md "▶ Active thread" with what you did before ending the session,
-and ask the owner whether to commit before finishing — nothing has been committed yet on this
-branch and a future session may run in a different environment that won't see uncommitted state.
+Update PROJECT_STATUS.md "▶ Active thread" with what actually got built/validated before ending
+the session, and confirm with the owner before any commit/push.
 ```
 
 ## Build checklist (with evidence)

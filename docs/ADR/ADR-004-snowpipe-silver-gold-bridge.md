@@ -1,9 +1,12 @@
 # ADR-004: Snowpipe Auto-Ingest — Silver (S3 Delta) → Snowflake Gold Bridge
 
-Status: Proposed — @data-architect ✓ / @finops-agent ✓ / @scope-guardian ✓ (all APPROVE WITH
-CONDITION); pending **owner** sign-off + the three binding scope-guardian conditions (teardown
-executes post-Gate-1; `docs/ARCHITECTURE.md` stack-table edit lands with acceptance; IAM step
-owner-executed). Does NOT move to Accepted until those hold.
+Status: **Accepted** (2026-06-30) — @data-architect ✓ / @finops-agent ✓ / @scope-guardian ✓ / 
+**Owner ✓** (all APPROVE WITH CONDITION). Scope-guardian condition (b) — `docs/ARCHITECTURE.md`
+stack-table edit — landed in the same commit as acceptance (see `docs/ARCHITECTURE.md`, new
+"Silver→Gold bridge" row). Two conditions remain live and binding going forward: (a) teardown
+must actually execute once Gate 1's Gold run-evidence is captured (not left armed indefinitely);
+(c) the AWS IAM role creation / Snowflake `STORAGE INTEGRATION`/`PIPE` setup stays
+**owner-executed**, never agent-autonomous.
 Date  : 2026-06-30
 Owner : Senior Data Engineer (build) · Scope Guardian (boundary) · Data Architect (data path)
 
@@ -113,7 +116,7 @@ keep running unattended.
   demonstrate auto-ingest automation, which is part of this portfolio project's intended scope
   (owner decision 2026-06-30 — see Context).
 
-## Sign-off required (not yet granted — implementation blocked until checked)
+## Sign-off (all granted, 2026-06-30 — ADR Accepted; cloud-infra build still owner-execution-gated)
 - [x] **@data-architect** — **APPROVE WITH CONDITION** (2026-06-30, Opus review). The snapshot
       chain has no dedup anywhere upstream of `dbt snapshot`: `stg_application.sql:28-29` selects
       from the source with only `WHERE SK_ID_CURR IS NOT NULL`, no `QUALIFY`/dedup;
@@ -180,6 +183,8 @@ keep running unattended.
       updated with a Snowpipe line item (done — see `COST_LOG.md`); (2) a documented teardown
       step added to this ADR's Consequences (done — see above) and actually executed once Gate
       1's run-evidence is captured, not left running indefinitely.
-- [ ] **Owner** — executes the AWS IAM role creation and Snowflake `STORAGE INTEGRATION`/`PIPE`
-      setup personally (human-execution-only per the security guardrail above); agent role is
-      teaching/walkthrough only for this step.
+- [x] **Owner** — **APPROVED** (2026-06-30, Raja Ahmad Luqman). Reviewed ADR-004 in full,
+      including the COPY-INTO-only technical correction and all three scope-guardian conditions;
+      approved moving Status to Accepted. **Still owner-executes personally, not yet done:** the
+      AWS IAM role creation and Snowflake `STORAGE INTEGRATION`/`PIPE` setup (human-execution-only
+      per the security guardrail above — agent role is teaching/walkthrough only for that step).

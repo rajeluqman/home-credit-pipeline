@@ -7,8 +7,9 @@
 | Storage | AWS S3 | Landing + Bronze + Silver |
 | Bronze | Delta Lake on S3 | ACID, time travel |
 | Silver | AWS Glue (Spark) | SHA-256 masking, transforms |
+| Silver→Gold bridge | Snowpipe (auto-ingest: S3 event → SQS → PIPE) | ADR-004. Scoped to this one load step only — not a general orchestration exception (see Orchestration row + `docs/ADDENDUM-A` §1/§6). |
 | Gold | dbt Core + Snowflake | Kimball Star Schema |
-| Orchestration | Airflow standalone | localhost:8080 |
+| Orchestration | Airflow standalone | localhost:8080. Phase 1 = manual-triggered for Bronze/Glue/dbt; Snowpipe (above) is the sole named exception. |
 | Quality | Great Expectations | Per layer |
 | BI | Power BI | Gold consumer |
 | Analytics | Databricks Serverless SQL | Query layer only |
