@@ -24,7 +24,7 @@ jobs:
       - name: Install tooling
         run: |
           python -m pip install --upgrade pip
-          pip install ruff pytest pandas great-expectations python-dotenv
+          pip install ruff pytest pandas pyarrow great-expectations python-dotenv pyyaml
 
       - name: Lint (ruff)
         run: ruff check bronze/ silver/ glue/ gx/ scripts/ tests/ .claude/hooks/ simulation/
