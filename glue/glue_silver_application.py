@@ -18,7 +18,7 @@ Transforms (PIPELINE_SPEC order):
 
 import sys
 import hashlib
-from awsglue.transforms import *
+from awsglue.transforms import *  # noqa: F403
 from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
@@ -26,6 +26,7 @@ from awsglue.job import Job
 from pyspark.sql import functions as F
 from pyspark.sql.functions import udf
 from pyspark.sql.types import StringType
+from pyspark.sql.window import Window
 from delta.tables import DeltaTable
 
 args = getResolvedOptions(sys.argv, ["JOB_NAME", "env", "date", "bucket"])
@@ -87,7 +88,6 @@ df = df.withColumn("DAYS_BIRTH_MASKED", sha256_udf(F.col("DAYS_BIRTH").cast("str
 df = df.drop("DAYS_BIRTH", "DAYS_EMPLOYED", "DAYS_EMPLOYED_CLEAN")
 
 # Step 7: Dedup — keep latest per SK_ID_CURR
-from pyspark.sql.window import Window
 w = Window.partitionBy("SK_ID_CURR").orderBy(F.col("ingestion_ts").desc())
 df = df.withColumn("_rank", F.row_number().over(w)).filter(F.col("_rank") == 1).drop("_rank")
 

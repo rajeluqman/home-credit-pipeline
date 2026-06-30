@@ -19,7 +19,6 @@ from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
-from pyspark.sql import functions as F
 
 args = getResolvedOptions(sys.argv, ["JOB_NAME", "env", "date", "bucket"])
 sc = SparkContext()

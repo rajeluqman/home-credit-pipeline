@@ -3,7 +3,6 @@ Unit tests for bronze/ingest_bronze.py — dev mode (local parquet, no AWS).
 """
 
 import sys
-import shutil
 import pandas as pd
 import pytest
 from pathlib import Path

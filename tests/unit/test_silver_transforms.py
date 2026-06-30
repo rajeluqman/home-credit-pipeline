@@ -12,7 +12,6 @@ Covers:
 
 import hashlib
 import pandas as pd
-import pytest
 import sys
 from pathlib import Path
 
