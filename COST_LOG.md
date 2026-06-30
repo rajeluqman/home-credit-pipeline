@@ -60,3 +60,22 @@ flag for a real billing-console reconciliation before Gate 2 sign-off). S3 footp
 `silver/` 0.4493 GB; **account-wide S3 total 6.4677 GB** vs. 5 GB free tier (owner's standing
 "acknowledge and continue" decision). Snowflake STAGING/PROD load (the other half of Gate 2's
 first checklist item) not yet started — $0 Snowflake spend for Phase 2 so far.
+
+**2026-06-30 (continued) — Silver(S3 staging)→Snowflake STAGING bridge built, manual COPY INTO
+(not a second Snowpipe — owner decision, see `PROJECT_STATUS.md`).** No new persistent AWS
+infrastructure: reused the existing `HOME_CREDIT_SILVER_INT` storage integration (widened
+`STORAGE_ALLOWED_LOCATIONS` to add `s3://home-credit-risk-staging/silver/`, no new cross-account
+trust — same `STORAGE_AWS_IAM_USER_ARN`/`STORAGE_AWS_EXTERNAL_ID`) and the existing
+`snowflake_silver_loader` IAM role (owner widened its inline `snowflake_silver_read_policy` via
+AWS Console to add read on `home-credit-risk-staging/silver/*`, same role, no new role). One new
+`STAGE` (`HOME_CREDIT_RISK.STAGING.SILVER_STAGE`) and 4 new tables
+(`HOME_CREDIT_RISK.STAGING.SILVER_APPLICATION`/`SILVER_BUREAU`/`SILVER_BUREAU_BALANCE`/
+`SILVER_INSTALLMENTS`) — Snowflake metadata objects only, no AWS cost. Compute cost: 4 `COPY INTO`
+statements on `HOME_CREDIT_WH` (X-Small), total wall time ≈20s for 14.5M rows / ~0.55 GB Parquet —
+well under 1 minute of warehouse-active billing (X-Small auto-suspends at 60s idle per its
+original creation config), **effectively $0 incremental Snowflake compute** (a fraction of the
+warehouse's per-second minimum billing increment, not separately itemized). No SQS/Snowpipe
+credit consumption — this bridge has no auto-ingest component, so no per-notification cost and no
+ongoing accrual risk after this load. **Teardown surface added by this entry:** the `STAGE` +
+widened `STORAGE_ALLOWED_LOCATIONS` + widened IAM policy — no `PIPE`, no S3 event notification, no
+SQS, consistent with the design goal of not doubling ADR-004's still-open teardown debt.

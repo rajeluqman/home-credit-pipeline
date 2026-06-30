@@ -8,7 +8,7 @@
 > **This is a pointer, not a cache.** It tells you which file to open — then READ THAT
 > FILE FRESH before you edit or assert about it (ANTI-SHORTCUT PROTOCOL, CLAUDE.md).
 
-**108 files mapped.**
+**109 files mapped.**
 
 ## Architecture Decision Records
 
@@ -218,6 +218,7 @@
 
 | File | Purpose | Uses | Used by |
 |------|---------|------|---------|
+| `gold/load_silver_to_staging.py` | Silver (S3 staging, full 58.4M-row scale) -> Snowflake HOME_CREDIT_RISK.STAGING loader. | — | — |
 | `requirements.txt` | — | — | — |
 | `scripts/gen_repo_map.py` | Repo-map generator — the NAVIGATION half of the ANTI-SHORTCUT PROTOCOL (see CLAUDE.md). | — | — |
 | `scripts/smart_sample.py` | Smart sampler — stratified anchor + referential closure over the 7 Home Credit source CSVs. | — | — |
