@@ -543,47 +543,329 @@ review doesn't have to re-derive that these are false positives.
 **@data-architect sign-off: grain/identity preserved on slice — CONFIRMED.** @scope-guardian
 review (engine = Glue, no boundary breach) is a separate sign-off, not duplicated here.
 
+### ▶ Active thread — Phase 2 scoping (Phase 1 → Phase 2 promotion), STOPPED at owner go-ahead (2026-06-30)
+A fresh session picked up the Opus handover prompt (below, now superseded — see the new one at the
+end of this section) to scope **Phase 2: full 58.4M rows via real AWS Glue → S3 STAGING/PROD →
+Snowflake STAGING/PROD** (`docs/ADDENDUM-A_local-dev-smart-sampling.md` §1 item 2, Gate 2 in §5).
+Read-before-touch: `docs/ADR/ADR-003-kimball-over-obt-sizing.md`, `INFRA_LIMITS_LOG.md`,
+`COST_LOG.md`, `docs/ADDENDUM-A_local-dev-smart-sampling.md` (full) — all re-read this session, not
+assumed from this file's prior summaries.
+
+**Per the explicit STOP-GATE in the handover prompt (cost-incurring, infra-creating, first-time
+cloud action), this session did ONLY read-only AWS reconnaissance — zero mutations, zero Glue jobs
+started, zero IAM objects created.** Real findings (live `boto3`, not projected — also logged in
+`INFRA_LIMITS_LOG.md`/`COST_LOG.md` 2026-06-30 entries):
+- **Raw data is already in S3 staging-ready form.** `s3://home-credit-risk-dev-1/landing/` already
+  holds all 7 full-scale CSVs (58.4M rows, 2.6571 GB) from the Phase-1 Step-8 download — Flow B
+  never deleted the S3 copy. Phase 2 does **not** need to re-download from Kaggle; it needs an
+  S3→S3 copy (or a fresh `download_dataset.py --env staging` run) into the staging bucket's
+  `landing/` prefix.
+- **`home-credit-risk-staging` and `home-credit-risk-prod` buckets already exist and are empty**
+  (confirmed `head_bucket` + `list_objects_v2`, 0 objects each) — provisioned at some earlier point,
+  not by this session.
+- **No Glue execution IAM role exists anywhere in the account** (`iam.list_roles()` full
+  enumeration → 8 roles, all Snowpipe/Snowflake or unrelated-project roles, zero Glue-related).
+  **A real Glue job cannot run at all until this is created** — per the same precedent as
+  `snowflake_silver_loader`'s creation (PROJECT_STATUS.md "AWS admin credential" entries above),
+  this is new IAM role creation and must be **owner-executed**, not agent-self-executed.
+- **Zero AWS Glue jobs registered in the account** (`glue.get_jobs()` → 0) — Phase 2 starts the
+  Glue side from nothing, not "point existing jobs at full data."
+- **`bronze/ingest_bronze.py` and all 5 `glue/glue_silver_*.py` jobs are already env/bucket-
+  parameterized** — confirmed by reading the live files, not assumed: `bronze/ingest_bronze.py:53-99`
+  takes `--env {dev,staging,prod}` and resolves `S3_BUCKET_{ENV}` from `.env.{env}`;
+  `glue/glue_silver_bureau.py:25-38` (and the other 4 jobs, same pattern) take `bucket`/`env`/`date`
+  via `getResolvedOptions` Glue job arguments. **No code changes are needed for Phase 2** —
+  promotion is purely a matter of job arguments + a real cluster, exactly as ADDENDUM-A §3 states.
+- **`home_credit` and `home_credit_setup_admin` cannot introspect their own IAM policies**
+  (`iam:ListAttachedUserPolicies`/`iam:ListUserPolicies` → `AccessDenied` for both users) — their
+  exact permission boundary can't be read via API. Per the prior session's documented scoping
+  (`home_credit_setup_admin` deliberately narrowed to `iam:CreateRole`/`PutRolePolicy` on exactly
+  the `snowflake_silver_loader` role ARN + `s3:*BucketNotification` on one bucket), neither
+  credential almost certainly covers a generic new `iam:CreateRole` for a Glue role, `glue:CreateJob`,
+  or `glue:StartJobRun`. **Not tested live** (would require an actual mutating/probing call against
+  an unconfirmed permission boundary) — declined per the same auto-mode-classifier precedent noted
+  above (PROJECT_STATUS.md "Auto mode classifier blocked two attempted actions" entry), pending
+  explicit owner instruction to test it.
+- **Storage re-quantified, not re-guessed:** ADDENDUM-A's "~2.7 GB zip" estimate (§8 step 2) was for
+  the *compressed* download; the **uncompressed** raw already in S3 is 2.6571 GB, on its own already
+  53% of the account-wide (not per-bucket) 5 GB free-tier ceiling. Landing a second staging copy +
+  full-scale Bronze Delta + full-scale Silver Delta output will need a real post-Bronze size
+  measurement before assuming it fits under the cap — not assumed here.
+
+**Owner go-ahead requested this turn** (AskUserQuestion) on how to sequence Phase 2's first real
+infrastructure-creating step — answer + any resulting action will be logged in the next entry below
+this one once made.
+
+### ▶ Active thread — Phase 2 execution begins, IAM verified, S3 copy done, Bronze-cloud bug found (2026-06-30, continued)
+**Owner created the Glue IAM role** — verified live, not trusted from the owner's say-so:
+`iam.get_role(RoleName="glue_silver_execution_role")` → `arn:aws:iam::579880301047:role/
+glue_silver_execution_role`, trust policy = `glue.amazonaws.com` `sts:AssumeRole` exactly as
+drafted; `iam.get_role_policy(... "glue_silver_execution_role_policy")` → permission JSON matches
+the drafted policy byte-for-byte (S3 read/write on `home-credit-risk-staging`'s
+`landing/bronze/silver/quarantine/glue-scripts/glue-temp` prefixes + scoped `ListBucket` +
+CloudWatch Logs on `/aws-glue/*`). No catalog permissions needed — re-confirmed by reading
+`glue/glue_silver_bureau.py:1-90` in full: all 5 Silver jobs use direct `spark.read.format("delta")
+.load(s3://...)` paths, zero Glue Data Catalog calls.
+
+**Raw → staging S3 copy executed** (owner pre-approved method: server-side `copy_object`, no
+re-download). All 7 files copied `home-credit-risk-dev-1/landing/` → `home-credit-risk-staging/
+landing/`; verified post-copy byte-identical sizes (`POS_CASH_balance.csv` 392.7MB,
+`application_train.csv` 166.1MB, `bureau.csv` 170.0MB, `bureau_balance.csv` 375.6MB,
+`credit_card_balance.csv` 424.6MB, `installments_payments.csv` 723.1MB,
+`previous_application.csv` 405.0MB = 2.6571 GB, 7 objects).
+
+**S3 free-tier ceiling crossed (owner acknowledged, continuing):** account-wide total across all 3
+buckets is now **5.3289 GB** (dev 2.6718 + staging 2.6571 + prod 0.0000) vs. the 5 GB free-tier
+allowance — ~$0.008/month overage at S3 Standard ap-southeast-1 rates. Logged in `COST_LOG.md`;
+owner explicitly chose "acknowledge and continue" over minimizing storage, given the trivial $ cost.
+
+**Bronze cloud ingestion permission-tested clean:** `home_credit` pipeline user confirmed
+`s3:PutObject`/`s3:DeleteObject` on `home-credit-risk-staging` via a live
+write+delete round-trip (`bronze/_permtest/test.txt`) before running real jobs.
+
+**Real bug found running Bronze full-scale (owner chose "try bureau_balance anyway, see what
+happens" for the OOM question, but this blocked on something upstream of that):**
+`python bronze/ingest_bronze.py --table application_train --env staging` (the lightest table,
+307,511 rows) **failed immediately**, before any OOM-risk territory, with
+`org.apache.hadoop.fs.UnsupportedFileSystemException: No FileSystem for scheme "s3"` at
+`spark.read...csv(s3_source)` (`bronze/ingest_bronze.py:110`). Root cause: `ingest_cloud()`
+(`bronze/ingest_bronze.py:90-124`) builds its SparkSession via
+`configure_spark_with_delta_pip(builder)` (`bronze/ingest_bronze.py:108`), which wires up **only**
+the Delta Lake extension — it never adds the Hadoop **S3A connector** (`hadoop-aws` +
+`aws-java-sdk-bundle` jars, `fs.s3a.impl`/credentials-provider config) that real AWS Glue provides
+natively inside its runtime. **This is consistent with `ingest_cloud()` never having been
+successfully exercised before this turn** — the Phase-1 Gate-1 proof's Bronze→S3 bridge used a
+*different*, purpose-built script, `bronze/promote_sample_to_s3.py` (PROJECT_STATUS.md
+"Bronze→S3 Delta bridge" entry above, ~line 106), explicitly because `glue/*.py` couldn't be
+modified — `ingest_cloud()` itself was apparently never actually run against S3 before, sample or
+full-scale; it was untested code. **Not a governance/grain/scope conflict** — a plain missing-
+dependency bug in non-governed pipeline code (`bronze/` is not in `governance_guard.py`'s watched
+paths: `glue/`, `dbt_home_credit/models/mart/`, `dbt_home_credit/snapshots/`, `airflow/dags/`).
+**Stopped before patching** — two fix shapes exist (add S3A jars/config to `ingest_cloud()`'s
+builder vs. write a `promote_*`-style local-Parquet→S3 bridge analogous to the Phase-1 pattern) and
+this is a real design choice, not a one-line correction — asked the owner rather than guessing.
+**Zero rows ingested to staging Bronze yet for any table.**
+
+### ▶ Active thread — Bronze full-scale promoted to staging, 7/7 PASS, no OOM (2026-06-30, continued)
+**Owner chose:** fix `ingest_cloud()` directly (add S3A connector config), not the `promote_*`-
+bridge alternative. **Fix applied** — `bronze/ingest_bronze.py:90-126`: added
+`spark.hadoop.fs.s3a.*` config (impl, credentials provider, access/secret key, region) to the
+`SparkSession.builder`, and passed `extra_packages=["org.apache.hadoop:hadoop-aws:3.3.4",
+"com.amazonaws:aws-java-sdk-bundle:1.12.262"]` to `configure_spark_with_delta_pip` (version-matched
+to the Hadoop client JARs PySpark 3.5.8 already bundles — confirmed via `find` locating
+`hadoop-client-{api,runtime}-3.3.4.jar` already present in the pyspark package). `s3://` paths
+rewritten to `s3a://` (the scheme the Hadoop connector actually registers) immediately after the
+SparkSession is built. First run downloaded ~80MB of new jars via Maven (one-time, cached in
+`~/.ivy2` for all subsequent runs).
+
+**All 7 tables run against `--env staging`, in increasing size order, bureau_balance last (owner
+chose "try it anyway, see what happens" over standing up separate compute) — 7/7 exact row-count
+match, 0 quarantine rows, no crash, no OOM:**
+| Table | Rows written | Quarantine | Wall time |
+|---|---|---|---|
+| application_train | 307,511 | 0 | 1m15s (incl. one-time jar download) |
+| bureau | 1,716,428 | 0 | 0m59s |
+| previous_application | 1,670,214 | 0 | 1m25s |
+| credit_card_balance | 3,840,312 | 0 | 1m31s |
+| POS_CASH_balance | 10,001,358 | 0 | 1m40s |
+| installments_payments | 13,605,401 | 0 | 2m15s |
+| **bureau_balance** | **27,299,925** | **0** | **2m32s** |
+
+All 7 row counts exact-match README.md "Source Tables" / the earlier Phase-1 raw verification —
+confirmed via the script's own logged `rows_written`, not assumed. `free -h` checked after each of
+the last 3 (largest) runs: available memory held steady ~6.0 GB throughout, no leak across
+sequential JVM spin-up/teardown cycles. **No OOM on `bureau_balance`** — logged as a real Observed
+entry in `INFRA_LIMITS_LOG.md` (2026-06-30), explicitly scoped as Bronze-only signal, not a Gate-2
+closer (Gate 2's checklist item is about the **Silver** layer on **real AWS Glue**, neither of which
+this Bronze step is — this was local PySpark+S3A, confirmed in the bug-found entry above).
+
+**S3 evidence (staging bucket, `bronze/` prefix, verified via `boto3 list_objects_v2`):** 0.6895 GB
+total across all 7 tables (Parquet/Delta columnar compression vs. 2.6571 GB raw CSV — expected,
+not a discrepancy). **Account-wide S3 total now 6.0184 GB** (dev 2.6718 + staging 3.3467 + prod
+0.0000) — further past the 5 GB free-tier ceiling than the earlier 5.3289 GB checkpoint; owner
+already chose "acknowledge and continue" for this category of overage (trivial $/month), not
+re-asked again per that standing answer.
+
+**Next (not started, needs explicit go-ahead — this is the first AWS Glue *compute* spend in the
+whole project, distinct from the storage/IAM steps above):** create the 5 real AWS Glue job
+definitions (`glue:CreateJob`, pointing at `glue_silver_execution_role`, G.1X×2, Glue 4.0, job
+scripts uploaded to `s3://home-credit-risk-staging/glue-scripts/`) and run them against this
+now-landed full-scale Bronze data — lighter 4 first (not `glue_silver_balance_tables`), monitor
+real CloudWatch DPU/memory, log Observed numbers, then `bureau_balance`'s Silver job last. Untested:
+whether `home_credit`/`home_credit_setup_admin` credentials actually have `glue:CreateJob` +
+`iam:PassRole` (passing `glue_silver_execution_role` to Glue) — `iam:PassRole` in particular is a
+security-sensitive permission worth confirming rather than assuming before attempting.
+
+### ▶ Active thread — Real AWS Glue jobs created + 4/5 run, first real Glue spend (2026-06-30, continued)
+**Job-to-table mapping corrected (read-before-touch caught a wrong assumption in the earlier
+handover prompt):** read all 5 `glue/glue_silver_*.py` scripts in full. `glue_silver_bureau.py`
+processes **both** `bureau` (1.7M rows) **and** `bureau_balance` (27.3M rows) — it is the heavy job,
+**not** `glue_silver_balance_tables.py` (which only handles `POS_CASH_balance` + `credit_card_balance`,
+max 10M rows). The earlier handover text's "Run `glue_silver_balance_tables` (bureau_balance, the
+27M-row job) LAST" line was wrong about which script does that — corrected here before any job was
+run, so the actual run order below reflects the real mapping, not the stale assumption.
+
+**IAM blocker found and fixed (owner-executed, twice):** (1) `home_credit` pipeline user initially
+lacked `iam:PassRole` on `glue_silver_execution_role` + the `glue:CreateJob`/`StartJobRun` actions —
+`glue.create_job()` failed clean with `AccessDeniedException`, zero partial resource created
+(confirmed via a follow-up `glue.get_jobs()` → 0). Owner added a scoped inline policy to
+`home_credit` (PassRole limited to that one role ARN + `iam:PassedToService=glue.amazonaws.com`
+condition, Glue actions scoped to `arn:aws:glue:ap-southeast-1:579880301047:job/glue_silver_*`) —
+verified live by retrying job creation, which then succeeded. (2) First real job run
+(`glue_silver_application`) **FAILED** after 69s execution / 138 DPU-seconds (~$0.017, first-ever
+real Glue $ spend) with `s3:PutObject` denied on `arn:aws:s3:::home-credit-risk-staging/silver_$folder$`
+— Spark's Hadoop S3 committer writes legacy directory-marker objects (`{prefix}_$folder$`, no slash)
+for parent paths, which didn't match the original prefix-scoped IAM policy
+(`landing/*`/`bronze/*`/`silver/*`/`quarantine/*`). Owner widened `glue_silver_execution_role`'s
+inline policy to `s3:GetObject/PutObject/DeleteObject` on the whole `home-credit-risk-staging/*`
+bucket (still single-bucket-scoped, not account-wide) — verified live via `iam.get_role_policy`
+before retrying.
+
+**5 Glue job definitions created** (`glue.create_job`, G.1X×2 workers, Glue 4.0,
+`--datalake-formats delta`, `--job-bookmark-option job-bookmark-disable`, scripts at
+`s3://home-credit-risk-staging/glue-scripts/*.py`): `glue_silver_application`,
+`glue_silver_bureau`, `glue_silver_balance_tables`, `glue_silver_installments`,
+`glue_silver_previous_application` — confirmed via `glue.get_jobs()`.
+
+**4 of 5 real Glue job runs SUCCEEDED** (owner go-ahead: "create jobs, run the 4 lighter ones
+first"), all monitored to completion via `glue.get_job_run()` polling, real DPU-seconds logged:
+
+| Job | Tables | State | Exec time | DPU-seconds |
+|---|---|---|---|---|
+| `glue_silver_application` (1st attempt) | application_train | **FAILED** (IAM, fixed above) | 69s | 138 |
+| `glue_silver_application` (retry) | application_train | **SUCCEEDED** | 87s | 174 |
+| `glue_silver_previous_application` | previous_application | **SUCCEEDED** | 77s | 154 |
+| `glue_silver_balance_tables` | POS_CASH_balance + credit_card_balance | **SUCCEEDED** | 89s | 179 |
+| `glue_silver_installments` | installments_payments | **SUCCEEDED** | 90s | 180 |
+
+**Total real Glue spend so far: 825 DPU-seconds ≈ 0.229 DPU-hours ≈ $0.10** (at ~$0.44/DPU-hour,
+Glue 4.0 standard ap-southeast-1 — estimate, not a billing-console figure).
+
+**S3 evidence (staging `silver/` prefix, verified via `boto3 list_objects_v2`):** real Delta tables
+written for all 4 — `silver_application` 24.58 MB (7 objects, incl. valid `_delta_log/
+00000000000000000000.json`), `silver_previous_application` 25.00 MB, `silver_credit_card` +
+`silver_pos_cash` 62.16 MB + 108.87 MB (one job, two targets), `silver_installments` 192.17 MB.
+**Total: 0.4128 GB.** Noted, not a new issue: `silver_application`'s path nests
+`ingestion_date=.../ingestion_date=.../` (Spark `partitionBy("ingestion_date")` re-partitioning a
+column already in the target path, `glue/glue_silver_application.py:102`, unmodified governed code,
+same behavior that worked at sample scale in Gate 1) — cosmetic, not a correctness issue for the
+Snowflake `REGEXP_SUBSTR` extraction pattern used downstream.
+
+**Account-wide S3 total** (re-checked): dev 2.6718 + staging (2.6571 landing + 0.6895 bronze +
+0.4128 silver ≈ 3.7594) + prod 0.0000 ≈ **6.43 GB**, further past the 5 GB free tier — same
+"acknowledge and continue" standing decision applies, not re-asked.
+
+**Remaining: `glue_silver_bureau` (bureau + bureau_balance, 27.3M rows) — the actual ADR-003 OOM
+concern, on real AWS Glue this time (not the local-Spark Bronze step that already succeeded
+clean).** Not started — needs its own explicit go-ahead per the staged plan ("hold bureau_balance's
+Silver job for a separate go-ahead after seeing those results").
+
+### ▶ Active thread — 5/5 real Glue Silver jobs SUCCEEDED, Gate-2's core technical items proven (2026-06-30, continued)
+**Owner go-ahead obtained, `glue_silver_bureau` run:** `glue.start_job_run` →
+`glue.get_job_run` polled to completion. **SUCCEEDED, 96s execution, 192 DPU-seconds, no OOM** —
+processed both `bureau` (1.7M rows) and `bureau_balance` (27,299,925 rows) on real AWS Glue
+G.1X×2 workers (the exact 32 GB executor-memory configuration ADR-003's sizing math was about).
+This is the first real cloud signal for the OOM-risk row `INFRA_LIMITS_LOG.md` had marked "Open"
+since 2026-06-28.
+
+**Real row counts verified for all 7 Silver tables** (via a local PySpark+S3A read — same proven
+connector from the Bronze step — `.count()` against each Delta table, not assumed from file sizes):
+
+| Table | Rows | vs. Bronze input | Note |
+|---|---|---|---|
+| silver_application | 307,511 | 307,511 (100%) | full passthrough + PII mask, no dedup loss (first run) |
+| silver_bureau | 1,716,428 | 1,716,428 (100%) | full passthrough, no dedup loss (first run) |
+| silver_bureau_balance | 610,965 | 27,299,925 | `MONTHS_BALANCE=0` filter + dedup on `SK_ID_BUREAU` |
+| silver_previous_application | 1,670,214 | 1,670,214 (100%) | no filter, no dedup |
+| silver_pos_cash | 10,001,358 | 10,001,358 (100%) | append mode, no filter |
+| silver_credit_card | 3,840,312 | 3,840,312 (100%) | append mode, no filter |
+| silver_installments | 12,861,994 | 13,605,401 (94.5%) | dedup on `(SK_ID_PREV, NUM_INSTALMENT_NUMBER)` — **5.46% dedup rate, consistent with the 5.5% rate observed at sample scale in Gate 1** (162,862/172,406) |
+
+All counts are internally consistent and explainable by each job's documented transform logic
+(`glue/glue_silver_*.py` docstrings) — no unexplained row loss anywhere.
+
+**Total real Glue spend, all 5 jobs (5 runs + 1 IAM-blocked retry): 1,017 DPU-seconds ≈ 0.2825
+DPU-hours ≈ $0.124** at ~$0.44/DPU-hour (estimate). **Total S3 footprint: staging `silver/` =
+0.4493 GB** (verified `list_objects_v2`). **Account-wide S3 total: 6.4677 GB** (dev 2.6718 +
+staging 3.7959 + prod 0.0000) vs. the 5 GB free tier — same "acknowledge and continue" standing
+decision.
+
+**Gate 2 checklist status** (`docs/ADDENDUM-A_local-dev-smart-sampling.md` §5):
+- [x] Same logic runs on full 58.4M via real AWS Glue → **S3 STAGING** — proven, this entry +
+  the Bronze entry above. **Snowflake STAGING/PROD load not yet done** — separate next step, the
+  checklist item literally says "→ Snowflake STAGING/PROD" and that half is still open.
+- [x] Glue job stays within free-tier executor memory (no OOM on `bureau_balance`) — **proven**,
+  real run-evidence above, not projected math.
+- [ ] Sign-off: @finops-agent (AWS free-tier + Snowflake credit) + @infra-reality-agent (OOM) —
+  **not yet requested**, should happen after the Snowflake STAGING load (so sign-off covers the
+  whole checklist, not just the Glue half) — or could be requested now for the Glue/OOM half
+  specifically, owner's call.
+
+**Updated `INFRA_LIMITS_LOG.md`'s "Glue OOM risk, full-scale bureau_balance" row from "Open" to
+Observed** (see that file, 2026-06-30 entry) — this is real, not the local-Bronze proxy signal
+from earlier in this thread.
+
 ### ▶ Opus handover prompt (copy-paste into a fresh session, branch `feature/gold-dbt-snowflake-sample`)
 ```
-You are continuing the Home Credit pipeline on branch feature/gold-dbt-snowflake-sample (off
-framework/governance-retrofit). This repo is GOVERNED — obey CLAUDE.md's STOP-GATE +
-ANTI-SHORTCUT protocol: read-before-touch (read every file THIS session, never assert from
-memory), enumerate don't sample, reconcile-before-done with file:line evidence.
+You are continuing the Home Credit pipeline on branch feature/gold-dbt-snowflake-sample. This
+repo is GOVERNED — obey CLAUDE.md's STOP-GATE + ANTI-SHORTCUT protocol: read-before-touch (read
+every file THIS session, never assert from memory), enumerate don't sample, reconcile-before-done
+with file:line evidence.
 
-Read PROJECT_STATUS.md "▶ Active thread — Gold cloud build EXECUTED, Gate 1 Gold proof PASSED
-(2026-06-30, this session)" in full first (and the ADR-004 section above it for context). Summary:
-the ENTIRE Snowpipe bridge build (AWS IAM role, Snowflake STORAGE INTEGRATION/STAGE/4 PIPEs, S3
-event notification) is DONE and VERIFIED working end-to-end (auto-ingest proven with a live test —
-22s from S3 upload to Snowflake load). The 4 in-scope SILVER_* tables hold this session's real
-smart-sample data, clean (no stale contamination): silver_application 4,612 · silver_bureau
-21,799 · silver_bureau_balance 5,003 · silver_installments 162,862. Gold is fully built and
-tested: `dbt run` 13/13 PASS, `dbt snapshot` (snap_applicant) clean 4,612=4,612=4,612, `dbt test`
-61/61 PASS including `assert_scd2_one_current_per_applicant` explicitly confirmed passing.
-**Gate 1 (Bronze→Silver→Gold end-to-end on the real sample) is proven.**
+Read PROJECT_STATUS.md's Phase 2 thread in full (the run of "▶ Active thread" entries from
+"Phase 2 scoping (Phase 1 → Phase 2 promotion), STOPPED at owner go-ahead" through "5/5 real Glue
+Silver jobs SUCCEEDED, Gate-2's core technical items proven", all 2026-06-30). Summary: **Bronze +
+Silver full-scale (58.4M rows) now runs end-to-end on real AWS Glue, landed in S3 STAGING — proven
+with real run-evidence, not projected math.** Concretely:
+- Raw (2.6571 GB, all 7 CSVs) copied `home-credit-risk-dev-1` → `home-credit-risk-staging` (S3
+  server-side copy).
+- Bronze: all 7 tables ingested full-scale to staging via local PySpark+S3A (a real pre-existing
+  bug in `bronze/ingest_bronze.py`'s `ingest_cloud()` — missing Hadoop S3A connector config — was
+  found and fixed this session, owner chose the fix-in-place option over a bridge-script
+  alternative). Exact row-count matches all 7 tables, 0 quarantine, **no OOM on `bureau_balance`
+  (27,299,925 rows)**.
+- Silver: 5 real AWS Glue job definitions created (`glue_silver_application`, `glue_silver_bureau`
+  [handles BOTH `bureau` AND `bureau_balance` — correct the earlier wrong assumption that
+  `glue_silver_balance_tables` was the bureau_balance job; it's actually POS_CASH+credit_card],
+  `glue_silver_balance_tables`, `glue_silver_installments`, `glue_silver_previous_application`),
+  G.1X×2, Glue 4.0. **All 5 SUCCEEDED**, including `glue_silver_bureau` on the full 27.3M-row
+  `bureau_balance` table — **no OOM, 96s, 192 DPU-seconds.** Real row counts verified for all 7
+  Silver tables via a live PySpark `.count()` (see the "5/5 real Glue Silver jobs SUCCEEDED" entry
+  for the full table).
+- Two IAM gaps found and fixed, both owner-executed in the AWS Console (same pattern as
+  `snowflake_silver_loader`'s creation): (1) `glue_silver_execution_role` created from a drafted
+  least-privilege policy; (2) `home_credit` pipeline user needed `iam:PassRole` on that role +
+  `glue:CreateJob`/`StartJobRun` added (a scoped inline policy, not broad admin); (3) the role's S3
+  policy was widened from per-prefix scoping to whole-bucket (`home-credit-risk-staging/*`) after a
+  real run failure on Spark's Hadoop `{prefix}_$folder$` directory-marker objects, which don't fit
+  slash-prefixed resource patterns.
+- Total real spend so far: **~$0.124 Glue DPU** (1,017 DPU-seconds across all runs incl. one
+  IAM-blocked retry) + negligible S3. **Account-wide S3 now 6.4677 GB** vs. the 5 GB free tier —
+  owner's standing decision is "acknowledge and continue" (overage is cents/month), don't re-ask.
 
-YOUR ONLY REMAINING TASK is ADR-004's binding teardown (Consequences section, condition (a) —
-must actually execute, this is not optional or deferrable):
-1. `DROP PIPE` for all 4: HOME_CREDIT_RISK.DEV.PIPE_SILVER_APPLICATION /
-   PIPE_SILVER_BUREAU / PIPE_SILVER_BUREAU_BALANCE / PIPE_SILVER_INSTALLMENTS.
-2. Remove the S3 bucket event notification on `home-credit-risk-dev-1` (prefix `silver/`, suffix
-   `.parquet`, pointing at the shared Snowflake SQS queue) — console or boto3
-   `put_bucket_notification_configuration` with that rule removed.
-3. Delete or disable the AWS IAM role `snowflake_silver_loader` (or at minimum revoke/blank its
-   trust policy so it can no longer be assumed) — and the Snowflake `STORAGE INTEGRATION
-   home_credit_silver_int` if the owner wants full teardown, not just the pipes.
-4. Log the teardown date + exactly what was removed in `COST_LOG.md`.
+**Gate 2 checklist status** (`docs/ADDENDUM-A_local-dev-smart-sampling.md` §5):
+- [x] Same logic runs on full 58.4M via real AWS Glue → **S3 STAGING** (done) → Snowflake
+  STAGING/PROD (**NOT done — this is your starting point**)
+- [x] Glue job stays within free-tier executor memory (no OOM on `bureau_balance`) — proven
+- [ ] Sign-off: @finops-agent (AWS free-tier + Snowflake credit) + @infra-reality-agent (OOM) —
+  not yet requested; owner's call whether to request it now for the Glue/OOM half or wait until
+  the Snowflake load closes the whole checklist item
 
-Before step 1, re-confirm scope with the owner: this session's working pattern (established after
-the owner explicitly pushed back on excessive re-asking) was that AWS IAM/STORAGE INTEGRATION/
-PIPE **creation** is owner-executed (ADR-004 condition (c), binding), but routine read/write
-operations downstream of that (S3 object ops, Snowflake queries, dbt commands) were agent-executed
-directly once the owner said so. Teardown sits in between — DROP PIPE and removing the S3
-notification are arguably "undo," not "create," but ask explicitly before running them rather than
-assuming the same permission carries over; IAM role deletion in particular should probably stay
-owner-executed by the same logic as creation.
+YOUR TASK: build the Silver(S3 staging)→Snowflake STAGING bridge to close Gate 2's first checklist
+item fully, then request Gate 2 sign-off. This is new infrastructure (a second Snowpipe-style
+bridge, or a manual `COPY INTO` against `HOME_CREDIT_RISK.STAGING.*` tables, or something else —
+not yet decided) — likely the same category of "ask the owner before building" as ADR-004's
+original Snowpipe decision was. Don't assume the dev-bucket Snowpipe (4 pipes, still armed per the
+ADR-004 deferred-teardown thread) extends to staging; it doesn't, it's scoped to
+`home-credit-risk-dev-1` only.
 
-Update PROJECT_STATUS.md "▶ Active thread" with what actually got torn down before ending the
-session, and confirm with the owner before any commit/push.
+Also still carrying forward, unresolved by this session: ADR-004's teardown (DROP PIPE ×4 / S3
+event notification removal / `snowflake_silver_loader` IAM role delete-disable / `COST_LOG.md`
+log) is still OPEN and explicitly deferred — don't assume it's fine to leave armed, and don't run
+it either, without re-asking.
+
+Update PROJECT_STATUS.md with whatever happens, with file:line or command-output evidence, before
+ending the session. Confirm with the owner before any commit/push.
 ```
 
 ## Build checklist (with evidence)

@@ -104,8 +104,26 @@ def ingest_cloud(table: str, ingestion_date: str, env: str) -> dict:
         SparkSession.builder.appName(f"bronze_ingest_{table}")
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+        .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
+        .config("spark.hadoop.fs.s3a.aws.credentials.provider",
+                "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider")
+        .config("spark.hadoop.fs.s3a.access.key", os.environ["AWS_ACCESS_KEY_ID"])
+        .config("spark.hadoop.fs.s3a.secret.key", os.environ["AWS_SECRET_ACCESS_KEY"])
+        .config("spark.hadoop.fs.s3a.endpoint.region", os.environ["AWS_REGION"])
     )
-    spark = configure_spark_with_delta_pip(builder).getOrCreate()
+    # S3A connector matches the Hadoop client version PySpark already bundles (3.3.4);
+    # configure_spark_with_delta_pip's extra_packages adds it alongside Delta, not in place of it.
+    spark = configure_spark_with_delta_pip(
+        builder,
+        extra_packages=[
+            "org.apache.hadoop:hadoop-aws:3.3.4",
+            "com.amazonaws:aws-java-sdk-bundle:1.12.262",
+        ],
+    ).getOrCreate()
+    # s3:// reads use s3a:// under the hood via the connector above
+    s3_source = s3_source.replace("s3://", "s3a://", 1)
+    s3_target = s3_target.replace("s3://", "s3a://", 1)
+    s3_quarantine = s3_quarantine.replace("s3://", "s3a://", 1)
 
     df = spark.read.option("header", "true").option("inferSchema", "true").csv(s3_source)
     df = df.withColumn("ingestion_ts", F.current_timestamp()).withColumn("ingestion_date", F.lit(ingestion_date))
